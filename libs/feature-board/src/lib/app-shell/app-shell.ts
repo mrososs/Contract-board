@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostListener, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthStore, BoardStore } from '@contract-board/data-access';
 import { BrandMark } from '@contract-board/ui';
@@ -35,10 +35,24 @@ export class AppShell {
   /** Captured `beforeinstallprompt` event for the Install button. */
   private installPrompt: { prompt: () => void } | null = null;
 
+  /** Already running as an installed standalone window? Then hide Install. */
+  protected readonly standalone = signal(
+    typeof window !== 'undefined' &&
+      (window.matchMedia?.('(display-mode: standalone)').matches ||
+        (window.navigator as { standalone?: boolean }).standalone === true),
+  );
+
   @HostListener('window:beforeinstallprompt', ['$event'])
   onBeforeInstall(e: Event): void {
     e.preventDefault();
     this.installPrompt = e as unknown as { prompt: () => void };
+  }
+
+  @HostListener('window:appinstalled')
+  onInstalled(): void {
+    this.installPrompt = null;
+    this.standalone.set(true);
+    this.store.fireToast('ContractBoard installed — open it from your desktop');
   }
 
   protected install(): void {

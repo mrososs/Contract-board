@@ -21,6 +21,13 @@ export class Login {
   private readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
 
+  constructor() {
+    // A restored session (installed PWA relaunch) skips the login screen.
+    if (this.auth.isAuthenticated()) {
+      this.router.navigate([this.auth.needsRole() ? '/role' : '/app']);
+    }
+  }
+
   protected readonly orgUrl = signal('dev.azure.com/iSaned');
   protected readonly pat = signal('');
   protected readonly busy = signal(false);
