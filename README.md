@@ -1,285 +1,99 @@
-# Nx Angular Repository
+# ContractBoard
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A live board that sits on top of **Figma + Azure DevOps + the backend's OpenAPI spec** and
+auto-detects three handoff signals, so Design, Frontend and Backend always see what the other
+tracks have finished — without anyone updating a status by hand.
 
-✨ A repository showcasing key [Nx](https://nx.dev) features for Angular monorepos ✨
-## Finish your Nx platform setup
+1. **Design Ready** — detected from Figma Dev Mode "Ready for development".
+2. **Contract Ready** — detected when an endpoint/DTO appears in the OpenAPI spec.
+3. **Macro-status** — read from / written to Azure DevOps.
 
-🚀 [Finish setting up your workspace](https://cloud.nx.app/connect/4iCi7OtWsU) to get faster builds with remote caching, distributed task execution, and self-healing CI. [Learn more about Nx Cloud](https://nx.dev/ci/intro/why-nx-cloud).
+> **The signature idea:** three tracks (Design → Frontend → Backend) run in parallel and
+> converge at the Frontend, which needs *both* a ready design and a ready contract before it can
+> integrate. Each work item shows its three lane states at a glance, and "what's blocking what"
+> is always obvious.
 
-## 📦 Project Overview
+**Status:** live on Supabase + Azure DevOps (org **iSaned**). Azure work-item sync, auth, the
+board, per-track claims with Azure write-back, Insights, and an installable desktop PWA are all
+working. The Figma / OpenAPI auto-detection workers are the next milestone.
 
-This repository demonstrates a production-ready Angular monorepo with:
+---
 
-- **2 Applications**
+## How it works
 
-  - `shop` - Angular e-commerce application with product listings and detail views
-  - `api` - Backend API with Docker support serving product data
+```
+Browser (Angular PWA, anon key)
+        │  supabase.functions.invoke('azure-proxy', { op, payload })
+        ▼
+Supabase Edge Function  azure-proxy   ──Basic :PAT──►  Azure DevOps REST
+        │  (PAT forwarded per request, never stored)
+        ▼
+Postgres (RLS)  ◄── service-role ──  sprint · task · app_user · activity · presence
+```
 
-- **6 Libraries**
+- **Auth is identity-from-PAT.** You paste your Azure org URL + a Personal Access Token; the
+  Edge Function asks Azure *who* the token belongs to. No passwords. The token is kept only on
+  your device (so the installed app reopens signed-in) and cleared on sign-out.
+- **Admin-driven sync.** An admin picks a Project + Sprint and pulls the sprint's story-level
+  work items into Postgres; everyone then sees the same board. Members never pull.
+- **Roles are a lens, not access.** Designer / Frontend / Backend / Lead-PM — picked once on
+  first sign-in. FE/BE members **Start / Stop / Done** the stories they're working on, which
+  reflects back to Azure under their own identity. Admin/PM is read-only oversight.
 
-  - `@org/feature-products` - Product listing feature (Angular)
-  - `@org/feature-product-detail` - Product detail feature (Angular)
-  - `@org/data` - Data access layer for shop features
-  - `@org/shared-ui` - Shared UI components
-  - `@org/models` - Shared data models
-  - `@org/products` - API product service library
+## Tech stack
 
-- **E2E Testing**
-  - `shop-e2e` - Playwright tests for the shop application
+| Layer        | Choice                                                          |
+| ------------ | --------------------------------------------------------------- |
+| Frontend     | Angular 21 — standalone components, **signals**, OnPush         |
+| Monorepo     | Nx (integrated: `apps/` + `libs/`)                              |
+| Backend      | **Supabase** — Postgres + RLS + Edge Functions (Deno)           |
+| Integration  | Azure DevOps REST (live, via the Edge proxy)                    |
+| Installable  | **PWA** — service worker + standalone manifest                  |
+| Styling      | Global SCSS theme (CSS custom props) + scoped component styles  |
 
-## 🚀 Quick Start
+## Quick start
 
 ```bash
-# Clone the repository
-git clone <your-fork-url>
-cd <your-repository-name>
-
-# Install dependencies
-# (Note: You may need --legacy-peer-deps)
 npm install
 
-# Serve the Angular shop application (this will simultaneously serve the API backend)
-npx nx serve shop
+# Dev (note: the service worker / Install only work in a production build)
+npx nx serve board                 # → http://localhost:4200
 
-# ...or you can serve the API separately
-npx nx serve api
+# Lint / type-check (build is the canonical compile check)
+npx nx lint board
+npx nx build board
 
-# Build all projects
-npx nx run-many -t build
-
-# Run tests
-npx nx run-many -t test
-
-# Lint all projects
-npx nx run-many -t lint
-
-# Run e2e tests
-npx nx e2e shop-e2e
-
-# Run tasks in parallel
-
-npx nx run-many -t lint test build e2e --parallel=3
-
-# Visualize the project graph
-npx nx graph
+# Installable PWA: build, then serve the prod output over http(s)
+npx nx build board
+npx nx serve-static board          # → http://localhost:4200  (click Install in the address bar)
 ```
 
-## ⭐ Featured Nx Capabilities
+**Log in:** Organization URL `dev.azure.com/iSaned` + an Azure **PAT** with Work Items
+(read/write) and Project & Team (read) scopes. The admin then picks a Project + Sprint and hits
+**Pull sprint**.
 
-This repository showcases several powerful Nx features:
-
-### 1. 🔒 Module Boundaries
-
-Enforces architectural constraints using tags. Each project has specific dependencies it can use:
-
-- `scope:shared` - Can be used by all projects
-- `scope:shop` - Shop-specific libraries
-- `scope:api` - API-specific libraries
-- `type:feature` - Feature libraries
-- `type:data` - Data access libraries
-- `type:ui` - UI component libraries
-
-**Try it out:**
-
-```bash
-# See the current project graph and boundaries
-npx nx graph
-
-# View a specific project's details
-npx nx show project shop --web
-```
-
-[Learn more about module boundaries →](https://nx.dev/features/enforce-module-boundaries)
-
-### 2. 🐳 Docker Integration
-
-The API project includes Docker support with automated targets and release management:
-
-```bash
-# Build Docker image
-npx nx docker:build api
-
-# Run Docker container
-npx nx docker:run api
-
-# Release with automatic Docker image versioning
-npx nx release
-```
-
-**Nx Release for Docker:** The repository is configured to use Nx Release for managing Docker image versioning and publishing. When running `nx release`, Docker images for the API project are automatically versioned and published based on the release configuration in `nx.json`. This integrates seamlessly with semantic versioning and changelog generation.
-
-[Learn more about Docker integration →](https://nx.dev/recipes/nx-release/release-docker-images)
-
-### 3. 🎭 Playwright E2E Testing
-
-End-to-end testing with Playwright is pre-configured:
-
-```bash
-# Run e2e tests
-npx nx e2e shop-e2e
-
-# Run e2e tests in CI mode
-npx nx e2e-ci shop-e2e
-```
-
-[Learn more about E2E testing →](https://nx.dev/technologies/test-tools/playwright/introduction#e2e-testing)
-
-### 4. ⚡ Vitest for Unit Testing
-
-Fast unit testing with Vite for Angular libraries:
-
-```bash
-# Test a specific library
-npx nx test data
-
-# Test all projects
-npx nx run-many -t test
-```
-
-[Learn more about Vite testing →](https://nx.dev/recipes/vite)
-
-### 5. 🔧 Self-Healing CI
-
-The CI pipeline includes `nx fix-ci` which automatically identifies and suggests fixes for common issues:
-
-```bash
-# In CI, this command provides automated fixes
-npx nx fix-ci
-```
-
-This feature helps maintain a healthy CI pipeline by automatically detecting and suggesting solutions for:
-
-- Missing dependencies
-- Incorrect task configurations
-- Cache invalidation issues
-- Common build failures
-
-[Learn more about self-healing CI →](https://nx.dev/ci/features/self-healing-ci)
-
-## 📁 Project Structure
+## Repo structure
 
 ```
-├── apps/
-│   ├── shop/           [scope:shop]    - Angular e-commerce app
-│   ├── shop-e2e/                       - E2E tests for shop
-│   └── api/            [scope:api]     - Backend API with Docker
-├── libs/
-│   ├── shop/
-│   │   ├── feature-products/        [scope:shop,type:feature] - Product listing
-│   │   ├── feature-product-detail/  [scope:shop,type:feature] - Product details
-│   │   ├── data/                    [scope:shop,type:data]    - Data access
-│   │   └── shared-ui/               [scope:shop,type:ui]      - UI components
-│   ├── api/
-│   │   └── products/    [scope:api]    - Product service
-│   └── shared/
-│       └── models/      [scope:shared,type:data] - Shared models
-├── nx.json             - Nx configuration
-├── tsconfig.json       - TypeScript configuration
-└── eslint.config.mjs   - ESLint with module boundary rules
+apps/
+  board/                 # the Angular PWA — routing, providers, global theme, manifest, icons
+libs/
+  data-access/           # domain models + signal stores (BoardStore, AuthStore) + SupabaseService
+  ui/                    # presentational atoms (status pill, brand mark)
+  feature-auth/          # login (PAT) + first-run role select
+  feature-board/         # app shell, board views, My Work, Insights, task drawer, overlays
+  azure/                 # typed Azure contract (logic now lives in the Edge Function)
+  openapi-sync/          # OpenAPI poll + DTO diff — detect/diff real, poll = stub (next)
+  figma-sync/            # Figma Dev-Mode poll + diff — detect real, poll = stub (next)
+supabase/
+  migrations/            # schema + RLS (0001), role (0003), start-work (0004)
+  functions/azure-proxy/ # LIVE Azure DevOps proxy
+  functions/{openapi,figma}-worker/  # stubs (next)
 ```
 
-## 🏷️ Understanding Tags
+## Documentation
 
-This repository uses tags to enforce module boundaries:
-
-| Project            | Tags                         | Can Import From              |
-| ------------------ | ---------------------------- | ---------------------------- |
-| `shop`             | `scope:shop`                 | `scope:shop`, `scope:shared` |
-| `api`              | `scope:api`                  | `scope:api`, `scope:shared`  |
-| `feature-products` | `scope:shop`, `type:feature` | `scope:shop`, `scope:shared` |
-| `data`             | `scope:shop`, `type:data`    | `scope:shared`               |
-| `models`           | `scope:shared`, `type:data`  | Nothing (base library)       |
-
-## 📚 Useful Commands
-
-```bash
-# Project exploration
-npx nx graph                                    # Interactive dependency graph
-npx nx list                                     # List installed plugins
-npx nx show project shop --web                 # View project details
-
-# Development
-npx nx serve shop                              # Serve Angular app
-npx nx serve api                               # Serve backend API
-npx nx build shop                              # Build Angular app
-npx nx test data                               # Test a specific library
-npx nx lint feature-products                   # Lint a specific library
-
-# Running multiple tasks
-npx nx run-many -t build                       # Build all projects
-npx nx run-many -t test --parallel=3          # Test in parallel
-npx nx run-many -t lint test build            # Run multiple targets
-
-# Affected commands (great for CI)
-npx nx affected -t build                       # Build only affected projects
-npx nx affected -t test                        # Test only affected projects
-
-# Docker operations
-npx nx docker:build api                        # Build Docker image
-npx nx docker:run api                          # Run Docker container
-```
-
-## 🎯 Adding New Features
-
-### Generate a new Angular application:
-
-```bash
-npx nx g @nx/angular:app my-app
-```
-
-### Generate a new Angular library:
-
-```bash
-npx nx g @nx/angular:lib my-lib
-```
-
-### Generate a new Angular component:
-
-```bash
-npx nx g @nx/angular:component my-component --project=my-lib
-```
-
-### Generate a new API library:
-
-```bash
-npx nx g @nx/node:lib my-api-lib
-```
-
-You can use `npx nx list` to see all available plugins and `npx nx list <plugin-name>` to see all generators for a specific plugin.
-
-## Nx Cloud
-
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## 🔗 Learn More
-
-- [Nx Documentation](https://nx.dev)
-- [Angular Monorepo Tutorial](https://nx.dev/getting-started/tutorials/angular-monorepo-tutorial)
-- [Module Boundaries](https://nx.dev/features/enforce-module-boundaries)
-- [Docker Integration](https://nx.dev/recipes/nx-release/release-docker-images)
-- [Playwright Testing](https://nx.dev/technologies/test-tools/playwright/introduction#e2e-testing)
-- [Vite with Angular](https://nx.dev/recipes/vite)
-- [Nx Cloud](https://nx.dev/ci/intro/why-nx-cloud)
-- [Releasing Packages](https://nx.dev/features/manage-releases)
-
-## 💬 Community
-
-Join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [X (Twitter)](https://twitter.com/nxdevtools)
-- [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [YouTube](https://www.youtube.com/@nxdevtools)
-- [Blog](https://nx.dev/blog)
+- [`supabase/README.md`](./supabase/README.md) — the database schema + Edge Functions.
+- Architecture (`CLAUDE.md`), roadmap (`ROADMAP.md`) and the full product spec
+  (`ContractBoard-Planning.md`) are maintained as working docs in the workspace (kept local,
+  not committed).

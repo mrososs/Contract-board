@@ -53,3 +53,8 @@ vitest.config.*.timestamp*
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
+# Project docs kept local-only (README is the committed doc)
+/CLAUDE.md
+/ROADMAP.md
+/ContractBoard-Planning.md
+/AGENTS.md
