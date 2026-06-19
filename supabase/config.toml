@@ -1,0 +1,15 @@
+# Supabase config for ContractBoard.
+# `project_id` is the local project ref; `supabase link` overrides for remote.
+project_id = "contract-board"
+
+[db]
+major_version = 15
+
+[functions.azure-proxy]
+verify_jwt = true
+
+[functions.openapi-worker]
+verify_jwt = false   # invoked on a schedule, not from the browser
+
+[functions.figma-worker]
+verify_jwt = false

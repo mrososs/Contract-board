@@ -1,0 +1,88 @@
+/* =====================================================================
+   ContractBoard — global theme
+   Dark-mode-first internal tool for the iSaned team. Palette + type from the
+   Claude Design prototype (dark variant).
+   ===================================================================== */
+
+:root {
+  /* surfaces */
+  --cb-bg:       #0E1114;
+  --cb-panel:    #15181B; /* login card / drawers / modals */
+  --cb-panel-2:  #13161A; /* lane / insight panels */
+  --cb-panel-3:  #121519; /* sidebar / topbar */
+  --cb-card:     #1F242A; /* task cards / inputs */
+  --cb-ink-bg:   #101316; /* deepest insets */
+
+  /* text */
+  --cb-ink:      #EDE7DC; /* primary */
+  --cb-mut:      #A7ADB2; /* secondary */
+  --cb-mut-2:    #7E848B; /* tertiary */
+  --cb-mut-3:    #6E747B; /* faint */
+  --cb-mut-4:    #5D636A; /* labels */
+
+  /* hairlines */
+  --cb-line:      rgba(237, 231, 220, 0.08);
+  --cb-line-soft: rgba(237, 231, 220, 0.06);
+  --cb-line-2:    rgba(237, 231, 220, 0.1);
+  --cb-line-3:    rgba(237, 231, 220, 0.14);
+
+  /* track accents — readable by color + label, never color alone */
+  --cb-design:   #3BA7B3; /* Design  · cyan   */
+  --cb-frontend: #CBA86E; /* Frontend· gold   */
+  --cb-backend:  #7FB07F; /* Backend · green  */
+  --cb-alert:    #D9885F; /* changed / attention · orange */
+  --cb-slate:    #9097A0; /* blocked / todo */
+
+  /* type */
+  --xp-serif: 'Playfair Display', 'Times New Roman', serif;
+  --xp-sans:  'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  /* motion */
+  --xp-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+html, body { margin: 0; height: 100%; background: var(--cb-bg); }
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--xp-sans);
+  color: var(--cb-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { height: 11px; width: 11px; }
+::-webkit-scrollbar-thumb {
+  background: #2a2f34;
+  border-radius: 999px;
+  border: 3px solid var(--cb-bg);
+}
+
+/* keyframes used across the app */
+@keyframes cbpulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.85; } }
+@keyframes cbshim  { 0% { background-position: -260px 0; } 100% { background-position: 260px 0; } }
+@keyframes cbfade  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* shared hover affordances (templates use inline styles for static layout;
+   hover transitions live here so they survive view encapsulation) */
+.cb-hover-gold        { transition: border-color 0.18s, color 0.18s, transform 0.18s, background 0.18s; }
+.cb-hover-gold:hover  { border-color: rgba(203, 168, 110, 0.5) !important; }
+.cb-hover-gold-strong:hover { border-color: var(--cb-frontend) !important; color: var(--cb-frontend) !important; }
+.cb-hover-cyan:hover  { border-color: var(--cb-design) !important; }
+.cb-hover-green:hover { border-color: var(--cb-backend) !important; }
+.cb-hover-slate:hover { border-color: var(--cb-slate) !important; }
+.cb-hover-lift        { transition: border-color 0.18s, transform 0.18s; }
+.cb-hover-lift:hover  { border-color: rgba(203, 168, 110, 0.5) !important; transform: translateY(-1px); }
+.cb-hover-row         { transition: background 0.15s; }
+.cb-hover-row:hover   { background: #1a1e22 !important; }
+.cb-btn-gold          { transition: background 0.18s; }
+.cb-btn-gold:hover    { background: #D8C49A !important; }
+
+.cb-skel {
+  background: linear-gradient(90deg, #1b1f23 25%, #23282d 50%, #1b1f23 75%);
+  background-size: 520px 100%;
+  animation: cbshim 1.4s linear infinite;
+}
+
+/* reset for the many buttons we render */
+button { font-family: inherit; }
+a { color: inherit; }

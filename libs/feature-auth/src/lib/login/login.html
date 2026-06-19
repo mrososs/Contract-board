@@ -1,0 +1,71 @@
+<div class="cb-login">
+  <div class="cb-login__card">
+    <div style="padding: 34px 36px 30px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <cb-brand-mark />
+        <span style="font-family: var(--xp-serif); font-size: 18px; color: var(--cb-ink); font-weight: 500">
+          ContractBoard
+        </span>
+      </div>
+
+      <h2 class="cb-login__title">Sign in to your board</h2>
+      <p class="cb-login__lede">
+        Authenticate with your Azure DevOps token so Azure records
+        <em style="color: var(--cb-frontend); font-style: normal">who</em> moved each task.
+        No password is ever stored.
+      </p>
+
+      <form (ngSubmit)="submit()" style="display: flex; flex-direction: column; gap: 13px">
+        <div>
+          <label class="cb-login__label" for="cb-org">Organization URL</label>
+          <div class="cb-login__input">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E747B" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20" />
+            </svg>
+            <input
+              id="cb-org"
+              name="org"
+              type="text"
+              class="cb-login__field"
+              autocomplete="off"
+              [ngModel]="orgUrl()"
+              (ngModelChange)="orgUrl.set($event)"
+            />
+          </div>
+        </div>
+        <div>
+          <label class="cb-login__label" for="cb-pat">Personal access token</label>
+          <div class="cb-login__input" [class.cb-login__input--focus]="pat().length > 0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CBA86E" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <input
+              id="cb-pat"
+              name="pat"
+              type="password"
+              class="cb-login__field"
+              placeholder="Paste your Azure DevOps PAT"
+              autocomplete="off"
+              [ngModel]="pat()"
+              (ngModelChange)="pat.set($event)"
+            />
+          </div>
+        </div>
+
+        @if (error()) {
+          <p class="cb-login__error" role="alert">{{ error() }}</p>
+        }
+
+        <button type="submit" class="cb-login__submit cb-hover-gold" [disabled]="busy() || !pat().trim()">
+          {{ busy() ? 'Verifying…' : 'Open my board →' }}
+        </button>
+      </form>
+
+      <p class="cb-login__foot">
+        The token is sent over a secure proxy and held only for this session — never saved.
+      </p>
+    </div>
+  </div>
+</div>

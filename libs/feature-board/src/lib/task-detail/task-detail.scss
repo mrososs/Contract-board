@@ -1,0 +1,131 @@
+.cb-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 12, 0.6);
+  transition: opacity 0.28s var(--xp-ease);
+  z-index: 40;
+}
+
+.cb-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 560px;
+  max-width: 92vw;
+  background: var(--cb-panel);
+  border-left: 1px solid var(--cb-line-2);
+  box-shadow: -30px 0 80px rgba(0, 0, 0, 0.5);
+  z-index: 41;
+  transition: transform 0.32s var(--xp-ease);
+  display: flex;
+  flex-direction: column;
+
+  &__head {
+    flex: none;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--cb-line);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  &__close {
+    flex: none;
+    background: var(--cb-card);
+    border: 1px solid var(--cb-line-3);
+    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cb-mut);
+    cursor: pointer;
+  }
+}
+
+.cb-detail-card {
+  background: var(--cb-card);
+  border: 1px solid var(--cb-line);
+  border-radius: 12px;
+  padding: 15px;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--cb-ink);
+
+    & > span {
+      width: 7px;
+      height: 7px;
+      border-radius: 2px;
+    }
+  }
+}
+
+.cb-diff {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: ui-monospace, 'SF Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--cb-mut);
+  overflow-x: auto;
+
+  &--del {
+    color: var(--cb-alert);
+    background: rgba(217, 136, 95, 0.1);
+    display: block;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  &--chg {
+    color: var(--cb-frontend);
+    background: rgba(203, 168, 110, 0.1);
+    display: block;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  &--add {
+    color: var(--cb-backend);
+    background: rgba(127, 176, 127, 0.1);
+    display: block;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+}
+
+.cb-detail-btn {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--cb-ink);
+  background: var(--cb-card);
+  border: 1px solid var(--cb-line-3);
+  border-radius: 10px;
+  padding: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  &--primary {
+    color: #2a2310;
+    background: var(--cb-frontend);
+    border: none;
+    box-shadow: 0 8px 22px rgba(156, 123, 69, 0.24);
+  }
+}

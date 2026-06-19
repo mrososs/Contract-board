@@ -1,0 +1,25 @@
+{
+  "name": "ContractBoard",
+  "short_name": "ContractBoard",
+  "description": "A live board over Figma, Azure DevOps and the OpenAPI spec — auto-detecting design, contract and status handoffs across Design, Frontend and Backend.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0E1114",
+  "theme_color": "#0E1114",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

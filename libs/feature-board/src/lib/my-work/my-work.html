@@ -1,0 +1,67 @@
+<div style="max-width: 1180px; margin: 0 auto">
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px">
+    <span style="width: 9px; height: 9px; border-radius: 3px" [style.background]="store.roleInfo().color"></span>
+    <span style="font-size: 13px; color: var(--cb-mut)">
+      Viewing as <strong style="color: var(--cb-ink); font-weight: 700">{{ store.roleInfo().name }}</strong>
+      · you see only what's yours
+    </span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start">
+    @for (g of store.myGroups(); track g.label) {
+      <div style="background: var(--cb-panel-2); border: 1px solid var(--cb-line); border-radius: 14px; padding: 15px 16px">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 13px">
+          <span style="width: 8px; height: 8px; border-radius: 50%" [style.background]="g.fg"></span>
+          <span style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em" [style.color]="g.fg">{{ g.label }}</span>
+          <span style="font-size: 10.5px; color: var(--cb-mut-3); margin-left: auto">{{ g.count }}</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 9px">
+          @for (it of g.items; track it.uc) {
+            <div
+              class="cb-hover-gold"
+              style="background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 11px; padding: 12px 13px; cursor: pointer"
+              (click)="it.open($event)"
+            >
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+                <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--cb-mut)">{{ it.uc }}</span>
+                <cb-status-pill [label]="it.statusPill.label" [fg]="it.statusPill.fg" [bg]="it.statusPill.bg" [dense]="true" />
+              </div>
+              <div style="font-size: 13.5px; color: var(--cb-ink); line-height: 1.35; margin-top: 7px">{{ it.title }}</div>
+              <div style="font-size: 11.5px; color: var(--cb-mut-2); margin-top: 5px">{{ it.sub }}</div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px">
+                <div style="display: flex; align-items: center; gap: 7px">
+                  <span
+                    style="width: 20px; height: 20px; border-radius: 50%; color: #0e1114; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center"
+                    [style.background]="it.whoColor"
+                    >{{ it.who }}</span
+                  >
+                  <span style="font-size: 11px; color: var(--cb-mut-2)">{{ it.whoName }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 7px">
+                  @if (it.cta2Label) {
+                    <button
+                      type="button"
+                      style="font-size: 11.5px; font-weight: 600; color: var(--cb-mut); background: transparent; border: 1px solid var(--cb-line-3); border-radius: 8px; padding: 6px 11px; cursor: pointer"
+                      (click)="it.cta2!($event)"
+                    >
+                      {{ it.cta2Label }}
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="cb-hover-gold-strong"
+                    style="font-size: 11.5px; font-weight: 600; color: var(--cb-ink); background: var(--cb-ink-bg); border: 1px solid var(--cb-line-3); border-radius: 8px; padding: 6px 11px; cursor: pointer"
+                    (click)="it.cta($event)"
+                  >
+                    {{ it.ctaLabel }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

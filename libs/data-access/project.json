@@ -1,0 +1,13 @@
+{
+  "name": "data-access",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/data-access/src",
+  "prefix": "cb",
+  "projectType": "library",
+  "tags": ["type:data"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

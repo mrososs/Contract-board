@@ -1,0 +1,104 @@
+<div style="max-width: 1180px; margin: 0 auto">
+  <!-- KPI cards -->
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px">
+    <div style="background: var(--cb-panel-2); border: 1px solid var(--cb-line); border-radius: 13px; padding: 18px">
+      <div style="font-family: var(--xp-serif); font-size: 34px; color: var(--cb-ink); line-height: 1">{{ store.metrics().nOpen }}</div>
+      <div style="font-size: 12px; color: var(--cb-mut); margin-top: 7px">Open tasks</div>
+    </div>
+    <div style="background: var(--cb-panel-2); border: 1px solid rgba(127, 176, 127, 0.18); border-radius: 13px; padding: 18px">
+      <div style="font-family: var(--xp-serif); font-size: 34px; color: var(--cb-backend); line-height: 1">{{ store.metrics().nReady }}</div>
+      <div style="font-size: 12px; color: var(--cb-mut); margin-top: 7px">Ready to integrate</div>
+    </div>
+    <div style="background: var(--cb-panel-2); border: 1px solid rgba(217, 136, 95, 0.2); border-radius: 13px; padding: 18px">
+      <div style="font-family: var(--xp-serif); font-size: 34px; color: var(--cb-alert); line-height: 1">{{ store.metrics().nAlert }}</div>
+      <div style="font-size: 12px; color: var(--cb-mut); margin-top: 7px">Needs attention</div>
+    </div>
+    <div style="background: var(--cb-panel-2); border: 1px solid var(--cb-line); border-radius: 13px; padding: 18px">
+      <div style="font-family: var(--xp-serif); font-size: 34px; color: var(--cb-slate); line-height: 1">{{ store.metrics().nBlocked }}</div>
+      <div style="font-size: 12px; color: var(--cb-mut); margin-top: 7px">Blocked</div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; margin-top: 16px; align-items: start">
+    <!-- track readiness + who's on each side -->
+    <div style="background: var(--cb-panel-2); border: 1px solid var(--cb-line); border-radius: 14px; padding: 20px 22px">
+      <div style="font-size: 13px; font-weight: 700; color: var(--cb-ink); margin-bottom: 18px">Track readiness</div>
+      <div style="display: flex; flex-direction: column; gap: 16px">
+        <div>
+          <div class="cb-bar__top">
+            <span class="cb-bar__label"><span style="background: var(--cb-design)"></span>Designs ready</span>
+            <span style="font-size: 11.5px; color: var(--cb-mut-2)">{{ store.metrics().designReady }} / {{ store.metrics().total }}</span>
+          </div>
+          <div class="cb-bar"><div class="cb-bar__fill" [style.width]="store.metrics().designPct" style="background: var(--cb-design)"></div></div>
+        </div>
+        <div>
+          <div class="cb-bar__top">
+            <span class="cb-bar__label"><span style="background: var(--cb-backend)"></span>Contracts ready</span>
+            <span style="font-size: 11.5px; color: var(--cb-mut-2)">{{ store.metrics().contractsReady }} / {{ store.metrics().total }}</span>
+          </div>
+          <div class="cb-bar"><div class="cb-bar__fill" [style.width]="store.metrics().contractPct" style="background: var(--cb-backend)"></div></div>
+        </div>
+        <div>
+          <div class="cb-bar__top">
+            <span class="cb-bar__label"><span style="background: var(--cb-frontend)"></span>Frontend done</span>
+            <span style="font-size: 11.5px; color: var(--cb-mut-2)">{{ store.metrics().feDone }} / {{ store.metrics().total }}</span>
+          </div>
+          <div class="cb-bar"><div class="cb-bar__fill" [style.width]="store.metrics().fePct" style="background: var(--cb-frontend)"></div></div>
+        </div>
+      </div>
+
+      <div style="font-size: 13px; font-weight: 700; color: var(--cb-ink); margin: 26px 0 14px">Who's on each side</div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px">
+        <div>
+          <div class="cb-who__h" style="color: var(--cb-design)">DESIGN</div>
+          <div class="cb-who__list">
+            @for (m of store.team().design; track m.name) {
+              <div class="cb-who__row"><span class="cb-who__av" style="background: rgba(59, 167, 179, 0.18); color: var(--cb-design)">{{ m.ini }}</span><span>{{ m.name }}</span></div>
+            } @empty {
+              <div style="font-size: 11px; color: var(--cb-mut-3)">No one yet</div>
+            }
+          </div>
+        </div>
+        <div>
+          <div class="cb-who__h" style="color: var(--cb-frontend)">FRONTEND</div>
+          <div class="cb-who__list">
+            @for (m of store.team().frontend; track m.name) {
+              <div class="cb-who__row"><span class="cb-who__av" style="background: rgba(203, 168, 110, 0.18); color: var(--cb-frontend)">{{ m.ini }}</span><span>{{ m.name }}</span></div>
+            } @empty {
+              <div style="font-size: 11px; color: var(--cb-mut-3)">No one yet</div>
+            }
+          </div>
+        </div>
+        <div>
+          <div class="cb-who__h" style="color: var(--cb-backend)">BACKEND</div>
+          <div class="cb-who__list">
+            @for (m of store.team().backend; track m.name) {
+              <div class="cb-who__row"><span class="cb-who__av" style="background: rgba(127, 176, 127, 0.18); color: var(--cb-backend)">{{ m.ini }}</span><span>{{ m.name }}</span></div>
+            } @empty {
+              <div style="font-size: 11px; color: var(--cb-mut-3)">No one yet</div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- what's blocked -->
+    <div style="background: var(--cb-panel-2); border: 1px solid var(--cb-line); border-radius: 14px; padding: 20px 22px">
+      <div style="font-size: 13px; font-weight: 700; color: var(--cb-ink); margin-bottom: 15px">What's blocked</div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        @for (b of store.blockers(); track b.uc) {
+          <div class="cb-hover-gold" style="display: flex; align-items: flex-start; gap: 11px; background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 11px; padding: 12px 13px; cursor: pointer" (click)="b.open($event)">
+            <span style="width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex: none" [style.background]="b.fg"></span>
+            <div style="min-width: 0">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="font-size: 10.5px; font-weight: 700; color: var(--cb-mut)">{{ b.uc }}</span>
+                <span style="font-size: 12.5px; color: var(--cb-ink)">{{ b.title }}</span>
+              </div>
+              <div style="font-size: 11.5px; margin-top: 3px; line-height: 1.4" [style.color]="b.fg">{{ b.reason }}</div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>

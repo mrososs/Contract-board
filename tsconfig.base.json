@@ -8,21 +8,20 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "importHelpers": true,
-    "target": "es2015",
+    "target": "es2022",
     "module": "esnext",
-    "lib": ["es2020", "dom"],
+    "lib": ["es2022", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@org/api/products": ["libs/api/products/src/index.ts"],
-      "@org/models": ["libs/shared/models/src/index.ts"],
-      "@org/shop/data": ["libs/shop/data/src/index.ts"],
-      "@org/shop/feature-product-detail": [
-        "libs/shop/feature-product-detail/src/index.ts"
-      ],
-      "@org/shop/feature-products": ["libs/shop/feature-products/src/index.ts"],
-      "@org/shop/shared-ui": ["libs/shop/shared-ui/src/index.ts"]
+      "@contract-board/ui": ["./libs/ui/src/index.ts"],
+      "@contract-board/data-access": ["./libs/data-access/src/index.ts"],
+      "@contract-board/azure": ["./libs/azure/src/index.ts"],
+      "@contract-board/openapi-sync": ["./libs/openapi-sync/src/index.ts"],
+      "@contract-board/figma-sync": ["./libs/figma-sync/src/index.ts"],
+      "@contract-board/feature-board": ["./libs/feature-board/src/index.ts"],
+      "@contract-board/feature-auth": ["./libs/feature-auth/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

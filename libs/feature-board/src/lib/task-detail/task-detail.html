@@ -1,0 +1,95 @@
+<!-- scrim -->
+<div
+  class="cb-scrim"
+  [style.opacity]="open() ? '1' : '0'"
+  [style.pointerEvents]="open() ? 'auto' : 'none'"
+  (click)="store.closeTask()"
+></div>
+
+<!-- panel -->
+<div class="cb-panel" [style.transform]="open() ? 'translateX(0)' : 'translateX(100%)'">
+  @if (store.selected(); as sel) {
+    <div class="cb-panel__head">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="font-size: 11.5px; font-weight: 700; color: var(--cb-frontend); letter-spacing: 0.04em">{{ sel.uc }}</span>
+          <cb-status-pill [label]="sel.cv.label" [fg]="sel.cv.fg" [bg]="sel.cv.bg" />
+        </div>
+        <h3 style="font-family: var(--xp-serif); font-size: 22px; font-weight: 500; color: var(--cb-ink); margin: 9px 0 0; letter-spacing: -0.01em">{{ sel.title }}</h3>
+      </div>
+      <button type="button" class="cb-panel__close" (click)="store.closeTask()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+      </button>
+    </div>
+
+    <div style="flex: 1; overflow: auto; padding: 18px 22px 24px">
+      @if (sel.hasDiff) {
+        <div style="margin-bottom: 16px; padding: 11px 14px; border-radius: 10px; background: rgba(217, 136, 95, 0.1); border: 1px solid rgba(217, 136, 95, 0.28); display: flex; align-items: center; gap: 10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+          <span style="font-size: 12.5px; color: var(--cb-ink)">Design moved <strong style="color: var(--cb-alert)">after</strong> you started — review before continuing.</span>
+        </div>
+      }
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
+        <!-- design -->
+        <div class="cb-detail-card">
+          <div class="cb-detail-card__head">
+            <span class="cb-detail-card__title"><span style="background: var(--cb-design)"></span>Design</span>
+            <cb-status-pill [label]="sel.dp.label" [fg]="sel.dp.fg" [bg]="sel.dp.bg" [dense]="true" />
+          </div>
+          <div style="border-radius: 9px; height: 88px; background: linear-gradient(135deg, #16323a, #1e3a44); border: 1px solid rgba(59, 167, 179, 0.2); display: flex; align-items: center; justify-content: center">
+            <span style="font-size: 10.5px; color: var(--cb-design); letter-spacing: 0.04em">Figma frame · {{ sel.uc }}</span>
+          </div>
+          <a style="display: flex; align-items: center; gap: 7px; margin-top: 11px; font-size: 12px; color: var(--cb-design); text-decoration: none; cursor: pointer">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="3" /><circle cx="9" cy="19" r="3" /><circle cx="15" cy="12" r="3" /></svg>Open in Figma Dev Mode
+          </a>
+          <div style="font-size: 11px; color: var(--cb-mut-2); margin-top: 8px">Designer · {{ sel.designer }}</div>
+        </div>
+
+        <!-- backend -->
+        <div class="cb-detail-card">
+          <div class="cb-detail-card__head">
+            <span class="cb-detail-card__title"><span style="background: var(--cb-backend)"></span>Backend</span>
+            <cb-status-pill [label]="sel.bp.label" [fg]="sel.bp.fg" [bg]="sel.bp.bg" [dense]="true" />
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 8px; padding: 9px 11px">
+            <span style="font-family: ui-monospace, monospace; font-size: 12px; color: var(--cb-ink)">{{ sel.endpoint }}</span>
+          </div>
+          <div style="margin-top: 11px; font-size: 11px; color: var(--cb-mut-2); margin-bottom: 6px">DTOs mapped</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            @for (d of sel.dtoList; track d) {
+              <span style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--cb-mut); background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); padding: 3px 8px; border-radius: 6px">{{ d }}</span>
+            }
+          </div>
+          <div style="font-size: 11px; color: var(--cb-mut-2); margin-top: 11px">Owner · {{ sel.beDev }}</div>
+        </div>
+      </div>
+
+      @if (sel.hasDiff) {
+        <div style="margin-top: 14px; background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 12px; overflow: hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 11px 15px; border-bottom: 1px solid var(--cb-line)">
+            <span style="font-size: 12px; font-weight: 700; color: var(--cb-ink)">DTO diff · <span style="font-family: ui-monospace, monospace; color: var(--cb-mut); font-weight: 500">BookingRequest</span></span>
+            <span style="font-size: 11px; color: var(--cb-alert)">3 changes</span>
+          </div>
+          <pre class="cb-diff">  BookingRequest {{ '{' }}
+<span class="cb-diff--del">-   promoCode: string</span>    checkIn: string
+<span class="cb-diff--chg">~   nights: string &rarr; number</span><span class="cb-diff--add">+   guestCount: number</span>  {{ '}' }}</pre>
+        </div>
+      }
+
+      <!-- Actions are for the Frontend owner only — admins/PM are read-only here. -->
+      @if (!store.isAdmin() && store.role() === 'frontend') {
+        <div style="margin-top: 18px; display: flex; align-items: center; gap: 10px">
+          <button type="button" class="cb-hover-gold cb-detail-btn" (click)="store.openGen()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>Generate types
+          </button>
+          <button type="button" class="cb-detail-btn cb-detail-btn--primary" (click)="store.markDone()">Mark FE_Done</button>
+        </div>
+      } @else {
+        <div style="margin-top: 18px; font-size: 12px; color: var(--cb-mut-3)">
+          {{ store.isAdmin() ? 'Read-only — admins track progress, the assigned dev moves the work.' : 'View only for your role.' }}
+        </div>
+      }
+    </div>
+  }
+</div>

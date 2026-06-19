@@ -21,18 +21,22 @@ export default [
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
             {
-              sourceTag: 'scope:shared',
-              onlyDependOnLibsWithTags: ['scope:shared'],
+              // The app composes features, ui and data-access.
+              sourceTag: 'type:app',
+              onlyDependOnLibsWithTags: ['type:feature', 'type:ui', 'type:data'],
             },
             {
-              sourceTag: 'scope:shop',
-              onlyDependOnLibsWithTags: ['scope:shop', 'scope:shared'],
+              // Smart feature libs may use other features, ui and data-access.
+              sourceTag: 'type:feature',
+              onlyDependOnLibsWithTags: ['type:feature', 'type:ui', 'type:data'],
             },
             {
-              sourceTag: 'scope:api',
-              onlyDependOnLibsWithTags: ['scope:api', 'scope:shared'],
+              // Presentational atoms stay pure — ui only.
+              sourceTag: 'type:ui',
+              onlyDependOnLibsWithTags: ['type:ui'],
             },
             {
+              // Stores / clients / models — the bottom layer.
               sourceTag: 'type:data',
               onlyDependOnLibsWithTags: ['type:data'],
             },

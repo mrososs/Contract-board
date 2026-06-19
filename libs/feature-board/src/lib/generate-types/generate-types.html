@@ -1,0 +1,48 @@
+<div
+  class="cb-modal-scrim"
+  [style.opacity]="store.genOpen() ? '1' : '0'"
+  [style.pointerEvents]="store.genOpen() ? 'auto' : 'none'"
+  (click)="store.closeGen()"
+>
+  @if (store.genOpen() && store.selected(); as sel) {
+    <div class="cb-modal" (click)="stop($event)">
+      <div class="cb-modal__head">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#CBA86E" stroke-width="2"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
+          <span style="font-family: var(--xp-serif); font-size: 18px; color: var(--cb-ink); font-weight: 500">Generate TypeScript</span>
+        </div>
+        <button type="button" class="cb-modal__close" (click)="store.closeGen()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        </button>
+      </div>
+
+      <div style="padding: 18px 22px">
+        <div style="background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 10px; overflow: hidden">
+          <div style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--cb-line-soft)">
+            <span style="width: 9px; height: 9px; border-radius: 50%; background: var(--cb-alert)"></span>
+            <span style="width: 9px; height: 9px; border-radius: 50%; background: var(--cb-frontend)"></span>
+            <span style="width: 9px; height: 9px; border-radius: 50%; background: var(--cb-backend)"></span>
+            <span style="font-family: ui-monospace, monospace; font-size: 10.5px; color: var(--cb-mut-3); margin-left: 6px">ng-openapi-gen</span>
+          </div>
+          <pre class="cb-term"><span style="color: var(--cb-mut-2)">$</span> ng-openapi-gen --input {{ sel.specFile }}
+<span style="color: var(--cb-backend)">&#10003;</span> {{ sel.gen1 }}
+<span style="color: var(--cb-backend)">&#10003;</span> {{ sel.gen2 }}
+<span style="color: var(--cb-backend)">&#10003;</span> {{ sel.svcFile }}</pre>
+        </div>
+        <div style="margin-top: 12px; background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 10px">
+          <pre class="cb-term"><span style="color: var(--cb-frontend)">export interface</span> <span style="color: var(--cb-design)">{{ sel.gen2name }}</span> {{ '{' }}
+  id: <span style="color: var(--cb-backend)">string</span>;
+  amount: <span style="color: var(--cb-backend)">number</span>;
+  currency: <span style="color: var(--cb-backend)">string</span>;
+  refundable: <span style="color: var(--cb-backend)">boolean</span>;
+{{ '}' }}</pre>
+        </div>
+      </div>
+
+      <div style="padding: 0 22px 20px; display: flex; gap: 10px">
+        <button type="button" class="cb-modal__cancel" (click)="store.closeGen()">Cancel</button>
+        <button type="button" class="cb-modal__confirm" (click)="store.confirmGen()">Add to repo &amp; set Integration &rarr;</button>
+      </div>
+    </div>
+  }
+</div>

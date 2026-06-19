@@ -1,0 +1,28 @@
+<div class="cb-role">
+  <div class="cb-role__card">
+    <div style="padding: 34px 36px 30px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <cb-brand-mark />
+        <span style="font-family: var(--xp-serif); font-size: 18px; color: var(--cb-ink); font-weight: 500">
+          ContractBoard
+        </span>
+      </div>
+
+      <h2 class="cb-role__title">What's your role?</h2>
+      <p class="cb-role__lede">
+        This sets your board lens — what "My work" focuses on. It's not an access level, and
+        you'll only be asked once.
+      </p>
+
+      <div class="cb-role__grid">
+        @for (r of roles; track r.role) {
+          <button type="button" class="cb-role__opt cb-hover-gold" [disabled]="busy()" (click)="pick(r.role)">
+            <span class="cb-role__swatch" [style.background]="r.color"></span>
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--cb-ink)">{{ r.label }}</span>
+            <span style="font-size: 11px; color: var(--cb-mut-2)">{{ r.who }}</span>
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+</div>
