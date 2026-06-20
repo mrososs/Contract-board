@@ -49,7 +49,12 @@ export class AuthStore {
   constructor() {
     // Rehydrate the board from a restored session (skip if a role is still owed).
     const s = this.session();
-    if (s && !this.needsRole()) void this.board.startSession(s);
+    if (!s) return;
+    if (s.orgUrl === 'demo') {
+      this.board.startDemo(); // a persisted demo session re-enters demo mode
+      return;
+    }
+    if (!this.needsRole()) void this.board.startSession(s);
   }
 
   /** Paste org URL + PAT → resolve identity → seed the board. Throws on a bad token. */
@@ -88,7 +93,9 @@ export class AuthStore {
       isAdmin: false,
       role: 'pm',
     };
-    this.session.set(demo);
+    // Persisted (sentinel orgUrl='demo') so a page refresh stays in demo;
+    // signOut clears it and returns to the real login.
+    this.persist(demo);
     this.board.startDemo();
   }
 

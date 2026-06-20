@@ -342,6 +342,10 @@ export class BoardStore {
       genCmd: `npx ng-openapi-gen --input ${t.specUrl ?? '<set the OpenAPI spec URL in Settings>'} --output src/app/api`,
       /** Design handoff toggle for the designer drawer controls. */
       designReady: t.d === 'design_ready',
+      /** Backend has published the contract (FE can integrate, not just scaffold). */
+      contractReady: t.b === 'contract_ready' || t.b === 'be_done',
+      /** FE is building UI from the design ahead of the contract. */
+      scaffolding: t.f === 'fe_scaffold',
       /** FE blocker note (if raised) — shown as a banner to all lenses. */
       blockNote: t.reason ?? null,
     };
@@ -413,7 +417,15 @@ export class BoardStore {
     const fe = this.role() === 'frontend';
     let partial: Partial<Task> = {};
     if (op === 'startWork') {
-      partial = fe ? { feStartedBy: me, feDev: me, f: 'fe_integration' } : { beStartedBy: me, beDev: me };
+      if (fe) {
+        // FE can start as soon as the design is ready: integrate when the
+        // contract is already published, otherwise scaffold the UI from design.
+        const cur = this.rawTasks().find((x) => x.azureId === azureId);
+        const contractReady = cur?.b === 'contract_ready' || cur?.b === 'be_done';
+        partial = { feStartedBy: me, feDev: me, f: contractReady ? 'fe_integration' : 'fe_scaffold' };
+      } else {
+        partial = { beStartedBy: me, beDev: me };
+      }
     } else if (op === 'stopWork') {
       partial = fe ? { feStartedBy: null, f: 'fe_blocked' } : { beStartedBy: null };
     } else if (op === 'doneWork') {
