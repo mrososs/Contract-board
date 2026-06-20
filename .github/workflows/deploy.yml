@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+# Builds the board PWA and publishes it to GitHub Pages on every push to main,
+# so there's always a shareable test link: https://mrososs.github.io/Contract-board/
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; let an in-progress run finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci --legacy-peer-deps
+
+      # Project Pages live under /<repo>/, so the app must be built with that
+      # base-href or all the absolute asset paths 404.
+      - name: Build (production)
+        run: npx nx build board --base-href=/Contract-board/
+
+      # GitHub Pages is static: a refresh on /app would 404. A 404.html copy of
+      # index.html hands those deep links back to the Angular router (SPA).
+      - name: SPA fallback
+        run: cp dist/apps/board/browser/index.html dist/apps/board/browser/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/apps/board/browser
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
