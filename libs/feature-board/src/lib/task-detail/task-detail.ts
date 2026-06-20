@@ -23,6 +23,11 @@ export class TaskDetail {
   protected readonly newOp = signal('');
   protected readonly newNode = signal('');
   protected readonly newFrame = signal('');
+  /** Designer dashboard: paste a Figma screen link. */
+  protected readonly newLink = signal('');
+
+  /** True for the designer lens (or admin) — may edit design links / handoff. */
+  protected readonly canDesign = computed(() => this.store.isAdmin() || this.store.role() === 'designer');
 
   protected val(e: Event): string {
     return e.target instanceof HTMLInputElement ? e.target.value : '';
@@ -36,6 +41,10 @@ export class TaskDetail {
     this.store.addScreen(this.newNode(), this.newFrame());
     this.newNode.set('');
     this.newFrame.set('');
+  }
+  protected addLink(): void {
+    this.store.addDesignLink(this.newLink());
+    this.newLink.set('');
   }
 
   @HostListener('document:keydown.escape')

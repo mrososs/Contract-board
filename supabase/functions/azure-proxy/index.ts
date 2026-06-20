@@ -55,6 +55,8 @@ interface ProxyRequest {
     | 'setState'
     | 'addCompletedWork'
     | 'markIntegration'
+    | 'setDesignState'
+    | 'addDesignLink'
     // per-project sources (admin) + N:N task mapping
     | 'listProjectSources'
     | 'setProjectSource'
@@ -439,6 +441,54 @@ async function markIntegration(p: Record<string, unknown>) {
 }
 
 /**
+ * Designer sets the design micro-state by hand (manual handoff — no Figma sync).
+ * Marking Ready notifies FE/BE via the activity feed.
+ */
+async function setDesignState(p: Record<string, unknown>) {
+  const id = Number(p.id);
+  const state = p.state as string;
+  const allowed = ['todo', 'design_wip', 'design_ready', 'design_changed'];
+  if (!id || !allowed.includes(state)) throw new Error('id and a valid design state are required');
+  const { error } = await db
+    .from('task')
+    .update({ design_state: state, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(`setDesignState: ${error.message}`);
+  if (state === 'design_ready') {
+    await db.from('activity').insert({
+      task_id: id,
+      kind: 'design_ready',
+      actor: (p.actor as string) || 'designer',
+      message: 'Design ready for development (manual handoff)',
+      payload: {},
+    });
+  }
+  return getBoard();
+}
+
+/** Designer pastes a Figma screen URL for a UC (manual link, no sync). */
+async function addDesignLink(p: Record<string, unknown>) {
+  const taskId = Number(p.taskId);
+  const url = ((p.url as string) ?? '').trim();
+  if (!taskId || !url) throw new Error('taskId and url are required');
+  const label = ((p.label as string) ?? '').trim() || 'Figma screen';
+  const { error } = await db.from('task_screen').upsert(
+    {
+      task_id: taskId,
+      node_id: url, // the URL is the stable key for a manual link
+      url,
+      frame_name: label,
+      is_manual: true,
+      status: 'ready',
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'task_id,node_id' },
+  );
+  if (error) throw new Error(`addDesignLink: ${error.message}`);
+  return listTaskLinks(p);
+}
+
+/**
  * A FE/BE member claims a user story they're working on. Records the actor on
  * that track (so the board shows who's on each story) and nudges the track
  * state — frontend → Integrating; backend stays Building. Supabase-only for now
@@ -662,7 +712,7 @@ async function listTaskLinks(p: Record<string, unknown>) {
       .eq('task_id', taskId)
       .order('operation_id'),
     db.from('task_screen')
-      .select('id, node_id, frame_name, is_required, is_manual, status, fingerprint, updated_at')
+      .select('id, node_id, frame_name, url, is_required, is_manual, status, fingerprint, updated_at')
       .eq('task_id', taskId)
       .order('frame_name'),
   ]);
@@ -765,6 +815,10 @@ Deno.serve(async (req) => {
         return ok(await addCompletedWork(payload));
       case 'markIntegration':
         return ok(await markIntegration(payload));
+      case 'setDesignState':
+        return ok(await setDesignState(payload));
+      case 'addDesignLink':
+        return ok(await addDesignLink(payload));
       case 'listProjectSources':
         return ok(await listProjectSources(payload));
       case 'setProjectSource':

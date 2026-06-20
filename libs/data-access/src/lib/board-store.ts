@@ -221,6 +221,7 @@ export class BoardStore {
       startCta: (id) => this.startCta(id),
       stopCta: (id) => this.stopCta(id),
       doneCta: (id) => this.doneCta(id),
+      designCta: (id, state) => this.designCta(id, state),
     }),
   );
 
@@ -335,6 +336,8 @@ export class BoardStore {
       /** Real spec URL (from the project's configured source) + the command to run. */
       specUrl: t.specUrl ?? null,
       genCmd: `npx ng-openapi-gen --input ${t.specUrl ?? '<set the OpenAPI spec URL in Settings>'} --output src/app/api`,
+      /** Design handoff toggle for the designer drawer controls. */
+      designReady: t.d === 'design_ready',
     };
   });
 
@@ -496,6 +499,38 @@ export class BoardStore {
     } catch {
       this.taskLinks.set({ endpoints: [], screens: [] });
     }
+  }
+
+  // ---- designer dashboard (manual design handoff) -------------------------
+  /** Designer sets the design micro-state by hand (Start / Finish / Stop). */
+  async setDesignState(azureId: number | undefined, state: string): Promise<void> {
+    if (!azureId) return;
+    try {
+      const res = await this.supabase.invoke<BoardResult>('setDesignState', {
+        id: azureId,
+        state,
+        actor: this.identity().name,
+      });
+      this.applyBoard(res);
+      this.fireToast(state === 'design_ready' ? 'Design marked Ready for development — FE/BE notified' : 'Design updated');
+    } catch (e) {
+      this.fireToast((e as Error).message);
+    }
+  }
+
+  /** Designer pastes a Figma screen URL onto the open task. */
+  async addDesignLink(url: string, label?: string): Promise<void> {
+    const id = this.currentTaskId();
+    if (!id || !url.trim()) return;
+    await this.linkOp('addDesignLink', { taskId: id, url: url.trim(), label });
+  }
+
+  /** Drawer Finish/Reopen for the open task (designer). */
+  finishDesign(): void {
+    this.setDesignState(this.currentTaskId(), 'design_ready');
+  }
+  reopenDesign(): void {
+    this.setDesignState(this.currentTaskId(), 'design_wip');
   }
 
   /** Pin a manual endpoint mapping to the open task. */
@@ -763,6 +798,12 @@ export class BoardStore {
     return (e?: Event) => {
       e?.stopPropagation();
       this.doneWork(azureId);
+    };
+  }
+  private designCta(azureId: number | undefined, state: string) {
+    return (e?: Event) => {
+      e?.stopPropagation();
+      this.setDesignState(azureId, state);
     };
   }
 }

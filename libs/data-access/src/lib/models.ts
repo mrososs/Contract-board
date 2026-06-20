@@ -133,6 +133,8 @@ export interface TaskScreenLink {
   id: string;
   node_id: string;
   frame_name: string | null;
+  /** Manual Figma link URL (designer dashboard), when set by hand. */
+  url?: string | null;
   is_required: boolean;
   is_manual: boolean;
   status: 'wip' | 'ready' | 'changed' | 'unknown';

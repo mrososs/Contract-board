@@ -45,12 +45,38 @@
             <span class="cb-detail-card__title"><span style="background: var(--cb-design)"></span>Design</span>
             <cb-status-pill [label]="sel.dp.label" [fg]="sel.dp.fg" [bg]="sel.dp.bg" [dense]="true" />
           </div>
-          <div style="border-radius: 9px; height: 88px; background: linear-gradient(135deg, #16323a, #1e3a44); border: 1px solid rgba(59, 167, 179, 0.2); display: flex; align-items: center; justify-content: center">
-            <span style="font-size: 10.5px; color: var(--cb-design); letter-spacing: 0.04em">Figma frame · {{ sel.uc }}</span>
-          </div>
-          <a style="display: flex; align-items: center; gap: 7px; margin-top: 11px; font-size: 12px; color: var(--cb-design); text-decoration: none; cursor: pointer">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="3" /><circle cx="9" cy="19" r="3" /><circle cx="15" cy="12" r="3" /></svg>Open in Figma Dev Mode
-          </a>
+          @for (sc of store.taskLinks().screens; track sc.id) {
+            <div style="display: flex; align-items: center; gap: 7px; padding: 5px 0; border-bottom: 1px solid var(--cb-line-soft)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--cb-design)" stroke-width="2" style="flex: none"><circle cx="9" cy="5" r="3" /><circle cx="9" cy="19" r="3" /><circle cx="15" cy="12" r="3" /></svg>
+              @if (sc.url) {
+                <a [href]="sc.url" target="_blank" rel="noopener" style="font-size: 11.5px; color: var(--cb-design); text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ sc.frame_name || 'Figma screen' }}</a>
+              } @else {
+                <span style="font-size: 11.5px; color: var(--cb-ink)">{{ sc.frame_name || sc.node_id }}</span>
+              }
+              <span style="flex: 1"></span>
+              @if (canDesign()) {
+                <button type="button" aria-label="Remove link" style="background: none; border: none; color: var(--cb-mut-3); cursor: pointer; font-size: 14px; line-height: 1" (click)="store.removeLink('screen', sc.id)">×</button>
+              }
+            </div>
+          } @empty {
+            <div style="font-size: 11px; color: var(--cb-mut-3); padding: 4px 0">
+              {{ canDesign() ? 'No Figma links yet — paste one below.' : 'No design links yet.' }}
+            </div>
+          }
+
+          @if (canDesign()) {
+            <div style="display: flex; gap: 6px; margin-top: 9px">
+              <input type="url" placeholder="Paste Figma screen URL" [value]="newLink()" (input)="newLink.set(val($event))" style="flex: 1; min-width: 0; font-size: 11px; padding: 5px 8px; background: var(--cb-bg); border: 1px solid var(--cb-line-2); border-radius: 6px; color: var(--cb-ink)" />
+              <button type="button" class="cb-detail-btn" style="flex: none; padding: 5px 11px" [disabled]="!newLink().trim()" (click)="addLink()">Add</button>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 9px">
+              @if (!sel.designReady) {
+                <button type="button" class="cb-detail-btn cb-detail-btn--primary" style="flex: none; padding: 6px 12px" (click)="store.finishDesign()">Finish · Ready for dev</button>
+              } @else {
+                <button type="button" class="cb-detail-btn" style="flex: none; padding: 6px 12px" (click)="store.reopenDesign()">Reopen</button>
+              }
+            </div>
+          }
           <div style="font-size: 11px; color: var(--cb-mut-2); margin-top: 8px">Designer · {{ sel.designer }}</div>
         </div>
 

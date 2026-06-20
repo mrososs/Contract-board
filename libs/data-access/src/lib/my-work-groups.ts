@@ -37,6 +37,8 @@ export interface MyWorkDeps {
   startCta: (azureId?: number) => (e?: Event) => void;
   stopCta: (azureId?: number) => (e?: Event) => void;
   doneCta: (azureId?: number) => (e?: Event) => void;
+  /** Designer dashboard: set the design micro-state by hand (Start/Finish/Stop). */
+  designCta: (azureId: number | undefined, state: string) => (e?: Event) => void;
 }
 
 /**
@@ -86,26 +88,26 @@ export function buildMyGroups(role: Role, tasks: DecoratedTask[], deps: MyWorkDe
   });
 
   if (role === 'designer') {
+    // Manual handoff: the designer opens a UC to paste Figma links, then
+    // Start / Finish (Ready for dev) / Stop straight from the card.
     const mk = (t: DecoratedTask) => {
-      let sub: string, ctaLabel: string, msg: string;
-      if (t.d === 'design_wip') {
-        sub = 'In Figma · ' + (t.feDev !== '—' ? t.feDev + ' waiting' : 'FE unassigned');
-        ctaLabel = 'Mark Ready for dev';
-        msg = t.uc + ' marked Ready for development · FE notified';
-      } else if (t.d === 'todo') {
-        sub = 'Not started yet';
-        ctaLabel = 'Start in Figma';
-        msg = 'Started a frame for ' + t.uc;
-      } else if (t.d === 'design_ready') {
-        sub = 'Handed off · ' + t.feDev + ' notified';
-        ctaLabel = 'Open frame';
-        msg = 'Opening ' + t.uc + ' in Figma';
-      } else {
-        sub = 'Edited after handoff · FE alerted';
-        ctaLabel = 'Re-export & notify FE';
-        msg = t.uc + ' re-exported · ' + t.feDev + ' alerted';
+      const base = { pill: pill(t.d), who: t.designer, color: T };
+      if (t.d === 'todo') {
+        return card(t, { ...base, sub: 'Not started — open to add Figma links',
+          ctaLabel: 'Start in Figma', cta: deps.designCta(t.azureId, 'design_wip') });
       }
-      return card(t, { sub, pill: pill(t.d), who: t.designer, color: T, ctaLabel, cta: deps.toastCta(msg) });
+      if (t.d === 'design_wip') {
+        return card(t, { ...base, sub: 'In Figma · add links, then finish',
+          ctaLabel: 'Finish · Ready for dev', cta: deps.designCta(t.azureId, 'design_ready'),
+          cta2Label: 'Stop', cta2: deps.designCta(t.azureId, 'todo') });
+      }
+      if (t.d === 'design_ready') {
+        return card(t, { ...base, sub: 'Handed off · FE/BE notified',
+          ctaLabel: 'Open links', cta: deps.openCta(t.uc),
+          cta2Label: 'Reopen', cta2: deps.designCta(t.azureId, 'design_wip') });
+      }
+      return card(t, { ...base, sub: 'Edited after handoff · FE alerted',
+        ctaLabel: 'Re-mark Ready', cta: deps.designCta(t.azureId, 'design_ready') });
     };
     return [
       grp('Designing now', G, tasks.filter((t) => t.d === 'design_wip').map(mk)),
