@@ -1,17 +1,17 @@
-<div style="max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
-  <p style="font-size: 12.5px; color: var(--cb-mut-2); margin: 0; line-height: 1.5">
-    Each Azure project polls its <strong style="color: var(--cb-ink)">own</strong> OpenAPI spec and Figma file. The
-    workers match tasks by their <code style="font-family: ui-monospace, monospace">UC-n</code> tag. The Figma access
+<div class="cb-set">
+  <p class="cb-set__intro">
+    Each Azure project polls its <strong class="cb-set__intro-strong">own</strong> OpenAPI spec and Figma file. The
+    workers match tasks by their <code class="cb-set__code">UC-n</code> tag. The Figma access
     token is a shared server secret — only the file key is set here.
   </p>
 
   <!-- ============ edit form ============ -->
-  <div class="cb-detail-card" style="padding: 18px 20px">
-    <div style="font-family: var(--xp-serif); font-size: 16px; color: var(--cb-ink); margin-bottom: 14px">Configure a project</div>
+  <div class="cb-detail-card cb-set__card">
+    <div class="cb-set__card-title">Configure a project</div>
 
-    <div style="display: flex; flex-direction: column; gap: 14px">
-      <label style="display: flex; flex-direction: column; gap: 6px">
-        <span style="font-size: 11px; color: var(--cb-mut-2)">Project</span>
+    <div class="cb-set__form">
+      <label class="cb-set__field">
+        <span class="cb-set__label">Project</span>
         <select class="cb-sel" (focus)="store.loadProjects()" (change)="onProject($event)">
           <option value="">Select a project…</option>
           @for (p of store.projects(); track p) {
@@ -20,8 +20,8 @@
         </select>
       </label>
 
-      <label style="display: flex; flex-direction: column; gap: 6px">
-        <span style="font-size: 11px; color: var(--cb-mut-2)">OpenAPI spec URL</span>
+      <label class="cb-set__field">
+        <span class="cb-set__label">OpenAPI spec URL</span>
         <input
           type="url"
           class="cb-input"
@@ -29,16 +29,16 @@
           [value]="specUrl()"
           (input)="specUrl.set(val($event))"
         />
-        <div style="display: flex; align-items: center; gap: 10px">
+        <div class="cb-set__test-row">
           <button type="button" class="cb-btn" [disabled]="!specUrl().trim()" (click)="testSpec()">Test spec</button>
           @if (specTest()) {
-            <span style="font-size: 11.5px" [style.color]="specTest().startsWith('✓') ? 'var(--cb-backend)' : 'var(--cb-alert)'">{{ specTest() }}</span>
+            <span class="cb-set__test-msg" [style.color]="specTest().startsWith('✓') ? 'var(--cb-backend)' : 'var(--cb-alert)'">{{ specTest() }}</span>
           }
         </div>
       </label>
 
-      <label style="display: flex; flex-direction: column; gap: 6px">
-        <span style="font-size: 11px; color: var(--cb-mut-2)">Figma file key</span>
+      <label class="cb-set__field">
+        <span class="cb-set__label">Figma file key</span>
         <input
           type="text"
           class="cb-input"
@@ -46,15 +46,15 @@
           [value]="figmaKey()"
           (input)="figmaKey.set(val($event))"
         />
-        <div style="display: flex; align-items: center; gap: 10px">
+        <div class="cb-set__test-row">
           <button type="button" class="cb-btn" [disabled]="!figmaKey().trim()" (click)="testFigmaFile()">Test Figma</button>
           @if (figmaTest()) {
-            <span style="font-size: 11.5px" [style.color]="figmaTest().startsWith('✓') ? 'var(--cb-backend)' : 'var(--cb-alert)'">{{ figmaTest() }}</span>
+            <span class="cb-set__test-msg" [style.color]="figmaTest().startsWith('✓') ? 'var(--cb-backend)' : 'var(--cb-alert)'">{{ figmaTest() }}</span>
           }
         </div>
       </label>
 
-      <label style="display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--cb-ink)">
+      <label class="cb-set__checkbox">
         <input type="checkbox" [checked]="pollEnabled()" (change)="pollEnabled.set(!pollEnabled())" />
         Polling enabled
       </label>
@@ -68,32 +68,32 @@
   </div>
 
   <!-- ============ configured list ============ -->
-  <div class="cb-detail-card" style="padding: 18px 20px">
-    <div style="font-family: var(--xp-serif); font-size: 16px; color: var(--cb-ink); margin-bottom: 14px">Configured projects</div>
+  <div class="cb-detail-card cb-set__card">
+    <div class="cb-set__card-title">Configured projects</div>
     @if (store.projectSources().length) {
-      <div style="display: flex; flex-direction: column; gap: 10px">
+      <div class="cb-set__list">
         @for (s of store.projectSources(); track s.id) {
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 9px">
-            <div style="min-width: 0">
-              <div style="display: flex; align-items: center; gap: 8px">
-                <span style="font-size: 13px; color: var(--cb-ink); font-weight: 600">{{ s.project }}</span>
+          <div class="cb-set__row">
+            <div class="cb-set__row-main">
+              <div class="cb-set__row-head">
+                <span class="cb-set__row-name">{{ s.project }}</span>
                 <span
-                  style="font-size: 10px; padding: 1px 7px; border-radius: 999px"
+                  class="cb-set__row-badge"
                   [style.color]="s.poll_enabled ? 'var(--cb-backend)' : 'var(--cb-mut-3)'"
                   [style.background]="s.poll_enabled ? 'rgba(127,176,127,0.16)' : 'var(--cb-ink-bg)'"
                 >{{ s.poll_enabled ? 'polling' : 'paused' }}</span>
               </div>
-              <div style="font-size: 11px; color: var(--cb-mut-2); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+              <div class="cb-set__row-spec">
                 spec · {{ s.openapi_spec_url || '— not set' }}
               </div>
-              <div style="font-size: 11px; color: var(--cb-mut-2); margin-top: 2px">figma · {{ s.figma_file_key || '— not set' }}</div>
+              <div class="cb-set__row-figma">figma · {{ s.figma_file_key || '— not set' }}</div>
             </div>
             <button type="button" class="cb-btn" (click)="edit(s)">Edit</button>
           </div>
         }
       </div>
     } @else {
-      <div style="font-size: 12px; color: var(--cb-mut-3)">No projects configured yet — pick one above and save its sources.</div>
+      <div class="cb-set__empty">No projects configured yet — pick one above and save its sources.</div>
     }
   </div>
 </div>

@@ -11,9 +11,9 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       [style.height.px]="size()"
       [style.padding.px]="pad()"
     >
-      <span class="cb-mark__bar" style="height: 9px; background: var(--cb-design);"></span>
-      <span class="cb-mark__bar" style="height: 14px; background: var(--cb-frontend);"></span>
-      <span class="cb-mark__bar" style="height: 11px; background: var(--cb-backend);"></span>
+      <span class="cb-mark__bar cb-mark__bar--design"></span>
+      <span class="cb-mark__bar cb-mark__bar--frontend"></span>
+      <span class="cb-mark__bar cb-mark__bar--backend"></span>
     </span>
   `,
   styles: [
@@ -30,6 +30,18 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       .cb-mark__bar {
         width: 3px;
         border-radius: 1px;
+      }
+      .cb-mark__bar--design {
+        height: 9px;
+        background: var(--cb-design);
+      }
+      .cb-mark__bar--frontend {
+        height: 14px;
+        background: var(--cb-frontend);
+      }
+      .cb-mark__bar--backend {
+        height: 11px;
+        background: var(--cb-backend);
       }
     `,
   ],

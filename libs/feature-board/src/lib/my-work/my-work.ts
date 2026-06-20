@@ -8,6 +8,7 @@ import { StatusPill } from '@contract-board/ui';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatusPill],
   templateUrl: './my-work.html',
+  styleUrl: './my-work.scss',
 })
 export class MyWork {
   protected readonly store = inject(BoardStore);

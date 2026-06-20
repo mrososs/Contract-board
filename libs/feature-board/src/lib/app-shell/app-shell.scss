@@ -25,6 +25,20 @@
     border-bottom: 1px solid var(--cb-line-soft);
   }
 
+  &__brand-name {
+    font-family: var(--xp-serif);
+    font-size: 16px;
+    color: var(--cb-ink);
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  &__brand-sub {
+    font-size: 10px;
+    color: var(--cb-mut-3);
+    margin-top: 3px;
+  }
+
   &__nav {
     padding: 14px 12px;
     display: flex;
@@ -57,6 +71,20 @@
     margin-top: 14px;
     padding-top: 12px;
     border-top: 1px solid var(--cb-line-soft);
+  }
+
+  &__me-id {
+    min-width: 0;
+  }
+
+  &__me-name {
+    font-size: 12.5px;
+    color: var(--cb-ink);
+  }
+
+  &__me-track {
+    font-size: 10.5px;
+    color: var(--cb-mut-3);
   }
 
   &__avatar {
@@ -160,6 +188,53 @@
   padding: 14px 24px;
   border-bottom: 1px solid var(--cb-line-soft);
   background: var(--cb-panel-3);
+
+  &__lead {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+  }
+
+  &__title {
+    font-family: var(--xp-serif);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--cb-ink);
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+}
+
+/* ---------------- live indicator ---------------- */
+.cb-live {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--cb-backend);
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cb-backend);
+    box-shadow: 0 0 0 3px rgba(127, 176, 127, 0.16);
+  }
+}
+
+/* ---------------- active screen ---------------- */
+.cb-screen {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
 }
 
 .cb-seg {
@@ -229,5 +304,42 @@
     font-weight: 700;
     line-height: 16px;
     text-align: center;
+  }
+}
+
+/* ---------------- demo lens switcher ---------------- */
+.cb-demo {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  background: var(--cb-card);
+  border: 1px solid var(--cb-frontend);
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4);
+
+  &__label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--cb-frontend);
+    padding: 0 4px;
+  }
+
+  &__btn {
+    font-size: 11.5px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid var(--cb-line-2);
+  }
+
+  &__reset {
+    background: transparent;
+    color: var(--cb-mut-2);
   }
 }

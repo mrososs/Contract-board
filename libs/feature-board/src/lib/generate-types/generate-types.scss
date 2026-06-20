@@ -76,3 +76,151 @@
   color: var(--cb-mut);
   overflow-x: auto;
 }
+
+.cb-gt {
+  &__head-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__head-label {
+    font-family: var(--xp-serif);
+    font-size: 18px;
+    color: var(--cb-ink);
+    font-weight: 500;
+  }
+
+  &__body {
+    padding: 18px 22px;
+  }
+
+  &__intro {
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    color: var(--cb-mut-2);
+    line-height: 1.5;
+  }
+
+  &__intro-uc {
+    color: var(--cb-frontend);
+  }
+
+  &__term-card {
+    background: var(--cb-ink-bg);
+    border: 1px solid var(--cb-line-2);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  &__term-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--cb-line-soft);
+  }
+
+  &__dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+
+    &--alert {
+      background: var(--cb-alert);
+    }
+
+    &--frontend {
+      background: var(--cb-frontend);
+    }
+
+    &--backend {
+      background: var(--cb-backend);
+    }
+  }
+
+  &__term-name {
+    font-family: ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--cb-mut-3);
+    margin-left: 6px;
+  }
+
+  &__term-spacer {
+    flex: 1;
+  }
+
+  &__copy {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 1px solid var(--cb-line-3);
+    color: var(--cb-mut);
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 10.5px;
+    cursor: pointer;
+  }
+
+  &__term-pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  &__term-prompt {
+    color: var(--cb-mut-2);
+  }
+
+  &__no-spec {
+    margin: 10px 0 0;
+    font-size: 11.5px;
+    color: var(--cb-alert);
+  }
+
+  &__ep-label {
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--cb-mut-2);
+    margin-bottom: 6px;
+  }
+
+  &__ep-list {
+    background: var(--cb-ink-bg);
+    border: 1px solid var(--cb-line-2);
+    border-radius: 10px;
+    padding: 6px 12px;
+  }
+
+  &__ep-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+  }
+
+  &__ep-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  &__ep-name {
+    font-family: ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--cb-ink);
+  }
+
+  &__ep-empty {
+    font-size: 11px;
+    color: var(--cb-mut-3);
+    padding: 5px 0;
+  }
+
+  &__footer {
+    padding: 0 22px 20px;
+    display: flex;
+    gap: 10px;
+  }
+}

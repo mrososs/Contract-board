@@ -65,4 +65,32 @@
     height: 9px;
     border-radius: 3px;
   }
+
+  &__body {
+    padding: 34px 36px 30px;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__brand-name {
+    font-family: var(--xp-serif);
+    font-size: 18px;
+    color: var(--cb-ink);
+    font-weight: 500;
+  }
+
+  &__opt-label {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--cb-ink);
+  }
+
+  &__opt-who {
+    font-size: 11px;
+    color: var(--cb-mut-2);
+  }
 }

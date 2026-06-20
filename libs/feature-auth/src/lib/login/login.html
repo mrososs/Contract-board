@@ -1,9 +1,9 @@
 <div class="cb-login">
   <div class="cb-login__card">
-    <div style="padding: 34px 36px 30px">
-      <div style="display: flex; align-items: center; gap: 10px">
+    <div class="cb-login__body">
+      <div class="cb-login__brand">
         <cb-brand-mark />
-        <span style="font-family: var(--xp-serif); font-size: 18px; color: var(--cb-ink); font-weight: 500">
+        <span class="cb-login__brand-name">
           ContractBoard
         </span>
       </div>
@@ -11,11 +11,11 @@
       <h2 class="cb-login__title">Sign in to your board</h2>
       <p class="cb-login__lede">
         Authenticate with your Azure DevOps token so Azure records
-        <em style="color: var(--cb-frontend); font-style: normal">who</em> moved each task.
+        <em class="cb-login__who">who</em> moved each task.
         No password is ever stored.
       </p>
 
-      <form (ngSubmit)="submit()" style="display: flex; flex-direction: column; gap: 13px">
+      <form (ngSubmit)="submit()" class="cb-login__form">
         <div>
           <label class="cb-login__label" for="cb-org">Organization URL</label>
           <div class="cb-login__input">
@@ -67,7 +67,7 @@
         <button
           type="button"
           (click)="viewDemo()"
-          style="width: 100%; margin-top: 12px; padding: 10px; font-size: 13px; color: var(--cb-mut); background: transparent; border: 1px dashed var(--cb-line-3); border-radius: 10px; cursor: pointer"
+          class="cb-login__demo"
         >
           View demo (mock data, no token) →
         </button>

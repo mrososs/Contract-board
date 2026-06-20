@@ -1,63 +1,63 @@
 @switch (store.override()) {
   @case ('loading') {
-    <div style="max-width: 1180px; margin: 0 auto">
-      <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 20px">
-        <span style="width: 10px; height: 10px; border-radius: 50%; background: var(--cb-frontend); animation: cbpulse 1.3s ease-in-out infinite"></span>
-        <span style="font-size: 13px; color: var(--cb-mut-2)">Pulling work items from Azure&hellip;</span>
+    <div class="cb-bv__wrap">
+      <div class="cb-bv__loading-head">
+        <span class="cb-bv__loading-dot"></span>
+        <span class="cb-bv__loading-label">Pulling work items from Azure&hellip;</span>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px">
-        <div style="display: flex; flex-direction: column; gap: 12px">
-          <div class="cb-skel" style="height: 74px; border-radius: 11px"></div>
-          <div class="cb-skel" style="height: 74px; border-radius: 11px"></div>
+      <div class="cb-bv__skel-grid">
+        <div class="cb-bv__skel-col">
+          <div class="cb-skel cb-bv__skel-card"></div>
+          <div class="cb-skel cb-bv__skel-card"></div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 12px">
-          <div class="cb-skel" style="height: 74px; border-radius: 11px"></div>
+        <div class="cb-bv__skel-col">
+          <div class="cb-skel cb-bv__skel-card"></div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 12px">
-          <div class="cb-skel" style="height: 74px; border-radius: 11px"></div>
-          <div class="cb-skel" style="height: 74px; border-radius: 11px"></div>
+        <div class="cb-bv__skel-col">
+          <div class="cb-skel cb-bv__skel-card"></div>
+          <div class="cb-skel cb-bv__skel-card"></div>
         </div>
       </div>
     </div>
   }
 
   @case ('empty') {
-    <div style="max-width: 520px; margin: 60px auto 0; text-align: center; background: var(--cb-panel); border: 1px solid rgba(237, 231, 220, 0.09); border-radius: 16px; padding: 48px 36px">
-      <div style="width: 56px; height: 56px; border-radius: 15px; background: #1f242a; border: 1px solid var(--cb-line-2); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px">
+    <div class="cb-bv__empty">
+      <div class="cb-bv__empty-icon">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6E747B" stroke-width="1.6">
           <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
         </svg>
       </div>
-      <div style="font-family: var(--xp-serif); font-size: 21px; color: var(--cb-ink); font-weight: 500">No sprint loaded yet</div>
-      <p style="font-size: 13.5px; color: var(--cb-mut-2); margin: 10px auto 22px; line-height: 1.6; max-width: 380px">
+      <div class="cb-bv__empty-title">No sprint loaded yet</div>
+      <p class="cb-bv__empty-text">
         @if (store.isAdmin()) {
-          Pick a Project and Sprint above, then <span style="color: var(--cb-mut)">Pull sprint</span> to bring this team's work items in from Azure DevOps.
+          Pick a Project and Sprint above, then <span class="cb-bv__empty-hl">Pull sprint</span> to bring this team's work items in from Azure DevOps.
         } @else {
           Your admin hasn't pulled a sprint from Azure yet. It'll appear here the moment they do.
         }
       </p>
-      <button type="button" style="font-weight: 600; font-size: 13.5px; color: #2a2310; background: var(--cb-frontend); border: none; border-radius: 10px; padding: 11px 22px; cursor: pointer" (click)="store.loadBoard()">
+      <button type="button" class="cb-bv__refresh" (click)="store.loadBoard()">
         Refresh
       </button>
     </div>
   }
 
   @case ('error') {
-    <div style="max-width: 560px; margin: 50px auto 0">
-      <div style="background: var(--cb-panel); border: 1px solid rgba(237, 231, 220, 0.09); border-radius: 16px; padding: 26px">
-        <div style="padding: 14px 16px; border-radius: 12px; background: rgba(217, 136, 95, 0.1); border: 1px solid rgba(217, 136, 95, 0.3); display: flex; gap: 12px; align-items: flex-start">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2" style="flex: none; margin-top: 1px">
+    <div class="cb-bv__error">
+      <div class="cb-bv__error-panel">
+        <div class="cb-bv__error-banner">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2" class="cb-bv__error-icon">
             <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           <div>
-            <div style="font-size: 14px; font-weight: 700; color: var(--cb-ink)">Couldn't reach Azure</div>
-            <div style="font-size: 12.5px; color: var(--cb-mut); margin-top: 5px; line-height: 1.55">
+            <div class="cb-bv__error-title">Couldn't reach Azure</div>
+            <div class="cb-bv__error-body">
               The board kept its last good data — no state changes were made. Check the token or try again.
             </div>
           </div>
         </div>
-        <button type="button" class="cb-hover-gold" style="width: 100%; margin-top: 20px; font-weight: 600; font-size: 13.5px; color: var(--cb-ink); background: #1f242a; border: 1px solid var(--cb-line-3); border-radius: 10px; padding: 11px; cursor: pointer" (click)="store.loadBoard()">
+        <button type="button" class="cb-hover-gold cb-bv__retry" (click)="store.loadBoard()">
           Retry now
         </button>
       </div>
@@ -68,27 +68,27 @@
     @switch (store.layout()) {
       <!-- ===== LANES ===== -->
       @case ('lanes') {
-        <div style="max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px">
+        <div class="cb-bv__lanes">
           @for (lane of store.lanes(); track lane.name) {
-            <div style="background: var(--cb-panel-2); border: 1px solid var(--cb-line); border-radius: 14px; padding: 15px 14px; min-height: 420px">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px">
-                <span style="display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: var(--cb-ink)">
-                  <span style="width: 9px; height: 9px; border-radius: 2px" [style.background]="lane.dot"></span>{{ lane.name }}
+            <div class="cb-bv__lane">
+              <div class="cb-bv__lane-head">
+                <span class="cb-bv__lane-name">
+                  <span class="cb-bv__lane-dot" [style.background]="lane.dot"></span>{{ lane.name }}
                 </span>
-                <span style="font-size: 11px; color: var(--cb-mut-3); background: var(--cb-card); border-radius: 999px; padding: 2px 9px">{{ lane.count }}</span>
+                <span class="cb-bv__lane-count">{{ lane.count }}</span>
               </div>
-              <div style="font-size: 10.5px; color: var(--cb-mut-3); margin: 0 0 14px 17px">{{ lane.sub }}</div>
-              <div style="display: flex; flex-direction: column; gap: 10px">
+              <div class="cb-bv__lane-sub">{{ lane.sub }}</div>
+              <div class="cb-bv__lane-list">
                 @for (item of lane.items; track item.uc) {
-                  <div class="cb-hover-lift" role="button" tabindex="0" [attr.aria-label]="item.uc + ' · ' + item.title" style="background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 11px; padding: 12px; display: flex; flex-direction: column; gap: 9px; cursor: pointer" (click)="item.open($event)" (keydown.enter)="activate($event, item.open)" (keydown.space)="activate($event, item.open)">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px">
-                      <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; color: var(--cb-mut)">{{ item.uc }}</span>
+                  <div class="cb-hover-lift cb-bv__card" role="button" tabindex="0" [attr.aria-label]="item.uc + ' · ' + item.title" (click)="item.open($event)" (keydown.enter)="activate($event, item.open)" (keydown.space)="activate($event, item.open)">
+                    <div class="cb-bv__card-head">
+                      <span class="cb-bv__card-uc">{{ item.uc }}</span>
                       <cb-status-pill [label]="item.pill.label" [fg]="item.pill.fg" [bg]="item.pill.bg" [dense]="true" />
                     </div>
-                    <div style="font-size: 13px; color: var(--cb-ink); line-height: 1.35">{{ item.title }}</div>
-                    <div style="display: flex; align-items: center; gap: 7px">
-                      <span style="width: 19px; height: 19px; border-radius: 50%; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center" [style.background]="item.avBg" [style.color]="item.avFg">{{ item.who }}</span>
-                      <span style="font-size: 11px; color: var(--cb-mut-2)">{{ item.whoName }}</span>
+                    <div class="cb-bv__card-title">{{ item.title }}</div>
+                    <div class="cb-bv__card-who">
+                      <span class="cb-bv__card-av" [style.background]="item.avBg" [style.color]="item.avFg">{{ item.who }}</span>
+                      <span class="cb-bv__card-who-name">{{ item.whoName }}</span>
                     </div>
                   </div>
                 }
@@ -100,20 +100,20 @@
 
       <!-- ===== MATRIX ===== -->
       @case ('matrix') {
-        <div style="max-width: 1180px; margin: 0 auto; background: var(--cb-panel-2); border: 1px solid var(--cb-line); border-radius: 14px; overflow: hidden">
+        <div class="cb-bv__matrix">
           <div class="cb-matrix__head">
-            <span style="font-size: 10px; color: var(--cb-mut-3); letter-spacing: 0.08em">ID</span>
-            <span style="font-size: 10px; color: var(--cb-mut-3); letter-spacing: 0.08em">TASK</span>
-            <span class="cb-matrix__th" style="color: var(--cb-design)"><span style="background: var(--cb-design)"></span>DESIGN</span>
-            <span class="cb-matrix__th" style="color: var(--cb-frontend)"><span style="background: var(--cb-frontend)"></span>FRONTEND</span>
-            <span class="cb-matrix__th" style="color: var(--cb-backend)"><span style="background: var(--cb-backend)"></span>BACKEND</span>
+            <span class="cb-bv__matrix-hcell">ID</span>
+            <span class="cb-bv__matrix-hcell">TASK</span>
+            <span class="cb-matrix__th cb-matrix__th--design"><span></span>DESIGN</span>
+            <span class="cb-matrix__th cb-matrix__th--frontend"><span></span>FRONTEND</span>
+            <span class="cb-matrix__th cb-matrix__th--backend"><span></span>BACKEND</span>
           </div>
           @for (t of store.tasks(); track t.uc) {
             <div class="cb-matrix__row cb-hover-row" role="button" tabindex="0" [attr.aria-label]="t.uc + ' · ' + t.title" (click)="t.open($event)" (keydown.enter)="activate($event, t.open)" (keydown.space)="activate($event, t.open)">
-              <span style="font-size: 11.5px; font-weight: 600; color: var(--cb-mut)">{{ t.uc }}</span>
+              <span class="cb-bv__matrix-uc">{{ t.uc }}</span>
               <div>
-                <div style="font-size: 13.5px; color: var(--cb-ink); line-height: 1.3">{{ t.title }}</div>
-                <div style="font-size: 10.5px; margin-top: 3px" [style.color]="t.cv.fg">{{ t.cv.label }}</div>
+                <div class="cb-bv__matrix-title">{{ t.title }}</div>
+                <div class="cb-bv__matrix-conv" [style.color]="t.cv.fg">{{ t.cv.label }}</div>
               </div>
               <cb-status-pill [label]="t.dp.label" [fg]="t.dp.fg" [bg]="t.dp.bg" />
               <cb-status-pill [label]="t.fp.label" [fg]="t.fp.fg" [bg]="t.fp.bg" />
@@ -125,22 +125,22 @@
 
       <!-- ===== CONVERGENCE ===== -->
       @case ('conv') {
-        <div style="max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start">
+        <div class="cb-bv__conv">
           @for (g of store.focusGroups(); track g.label) {
-            <div style="background: var(--cb-panel-2); border: 1px solid var(--cb-line); border-radius: 14px; padding: 15px 16px">
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 13px">
-                <span style="width: 8px; height: 8px; border-radius: 50%" [style.background]="g.fg"></span>
-                <span style="font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em" [style.color]="g.fg">{{ g.label }}</span>
-                <span style="font-size: 10.5px; color: var(--cb-mut-3); margin-left: auto">{{ g.count }}</span>
+            <div class="cb-bv__conv-group">
+              <div class="cb-bv__conv-head">
+                <span class="cb-bv__conv-dot" [style.background]="g.fg"></span>
+                <span class="cb-bv__conv-label" [style.color]="g.fg">{{ g.label }}</span>
+                <span class="cb-bv__conv-count">{{ g.count }}</span>
               </div>
-              <div style="display: flex; flex-direction: column; gap: 9px">
+              <div class="cb-bv__conv-list">
                 @for (t of g.items; track t.uc) {
-                  <div class="cb-hover-gold" role="button" tabindex="0" [attr.aria-label]="t.uc + ' · ' + t.title" style="background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 10px; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer" (click)="t.open($event)" (keydown.enter)="activate($event, t.open)" (keydown.space)="activate($event, t.open)">
-                    <div style="min-width: 0">
-                      <div style="font-size: 10px; font-weight: 600; color: var(--cb-mut); letter-spacing: 0.04em">{{ t.uc }}</div>
-                      <div style="font-size: 13px; color: var(--cb-ink); line-height: 1.3; margin-top: 2px">{{ t.title }}</div>
+                  <div class="cb-hover-gold cb-bv__conv-card" role="button" tabindex="0" [attr.aria-label]="t.uc + ' · ' + t.title" (click)="t.open($event)" (keydown.enter)="activate($event, t.open)" (keydown.space)="activate($event, t.open)">
+                    <div class="cb-bv__conv-card-text">
+                      <div class="cb-bv__conv-card-uc">{{ t.uc }}</div>
+                      <div class="cb-bv__conv-card-title">{{ t.title }}</div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 4px; flex: none">
+                    <div class="cb-bv__conv-chips">
                       <span class="cb-conv__chip" title="Design" [style.color]="t.dp.fg" [style.background]="t.dp.bg">D</span>
                       <span class="cb-conv__chip" title="Frontend" [style.color]="t.fp.fg" [style.background]="t.fp.bg">F</span>
                       <span class="cb-conv__chip" title="Backend" [style.color]="t.bp.fg" [style.background]="t.bp.bg">B</span>

@@ -4,8 +4,8 @@
     <div class="cb-side__brand">
       <cb-brand-mark />
       <div>
-        <div style="font-family: var(--xp-serif); font-size: 16px; color: var(--cb-ink); font-weight: 500; line-height: 1">ContractBoard</div>
-        <div style="font-size: 10px; color: var(--cb-mut-3); margin-top: 3px">{{ store.sprintName() || 'iSaned · Azure DevOps' }}</div>
+        <div class="cb-side__brand-name">ContractBoard</div>
+        <div class="cb-side__brand-sub">{{ store.sprintName() || 'iSaned · Azure DevOps' }}</div>
       </div>
     </div>
 
@@ -29,9 +29,9 @@
     <div class="cb-side__foot">
       <div class="cb-side__me">
         <span class="cb-side__avatar" [style.background]="store.roleInfo().color + '2e'" [style.color]="store.roleInfo().color">{{ store.roleInfo().ini }}</span>
-        <div style="min-width: 0">
-          <div style="font-size: 12.5px; color: var(--cb-ink)">{{ store.roleInfo().name }}</div>
-          <div style="font-size: 10.5px; color: var(--cb-mut-3)">{{ store.isAdmin() ? 'Admin · ' + store.roleInfo().track : store.roleInfo().track }}</div>
+        <div class="cb-side__me-id">
+          <div class="cb-side__me-name">{{ store.roleInfo().name }}</div>
+          <div class="cb-side__me-track">{{ store.isAdmin() ? 'Admin · ' + store.roleInfo().track : store.roleInfo().track }}</div>
         </div>
         <button type="button" title="Sign out" class="cb-side__signout" (click)="signOut()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
@@ -43,8 +43,8 @@
   <!-- ================= MAIN ================= -->
   <main class="cb-main">
     <header class="cb-top">
-      <div style="display: flex; align-items: center; gap: 18px; min-width: 0">
-        <h1 style="font-family: var(--xp-serif); font-size: 20px; font-weight: 500; color: var(--cb-ink); margin: 0; white-space: nowrap">{{ store.pageTitle() }}</h1>
+      <div class="cb-top__lead">
+        <h1 class="cb-top__title">{{ store.pageTitle() }}</h1>
         @if (store.boardProjects().length > 1 && store.nav() !== 'settings') {
           <select class="cb-admin__sel" aria-label="Project" (change)="onBoardProject($event)">
             <option value="">All projects</option>
@@ -69,7 +69,7 @@
           </div>
         }
       </div>
-      <div style="display: flex; align-items: center; gap: 14px">
+      <div class="cb-top__actions">
         @if (store.isAdmin() || store.role() === 'pm') {
           <div class="cb-admin">
             <select class="cb-admin__sel" (focus)="store.loadProjects()" (change)="onProject($event)">
@@ -89,8 +89,8 @@
             </button>
           </div>
         }
-        <div style="display: flex; align-items: center; gap: 7px; white-space: nowrap; font-size: 11.5px; color: var(--cb-backend)">
-          <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--cb-backend); box-shadow: 0 0 0 3px rgba(127, 176, 127, 0.16)"></span>Live
+        <div class="cb-live">
+          <span class="cb-live__dot"></span>Live
         </div>
         <button type="button" class="cb-bell" [class.cb-bell--on]="store.activityOpen()" aria-label="Activity feed" (click)="store.toggleActivity()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
@@ -106,7 +106,7 @@
       </div>
     </header>
 
-    <div style="flex: 1; overflow: auto; padding: 24px">
+    <div class="cb-screen">
       @switch (store.nav()) {
         @case ('mywork') { <cb-my-work /> }
         @case ('board') { <cb-board-view /> }
@@ -125,12 +125,12 @@
 
 <!-- ================= DEMO LENS SWITCHER ================= -->
 @if (store.demoMode()) {
-  <div style="position: fixed; left: 16px; bottom: 16px; z-index: 200; display: flex; align-items: center; gap: 6px; padding: 7px 9px; background: var(--cb-card); border: 1px solid var(--cb-frontend); border-radius: 12px; box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4)">
-    <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--cb-frontend); padding: 0 4px">DEMO · view as</span>
+  <div class="cb-demo">
+    <span class="cb-demo__label">DEMO · view as</span>
     @for (r of demoRoles; track r.role) {
       <button
         type="button"
-        style="font-size: 11.5px; padding: 5px 10px; border-radius: 8px; cursor: pointer; border: 1px solid var(--cb-line-2)"
+        class="cb-demo__btn"
         [style.background]="store.role() === r.role ? 'var(--cb-frontend)' : 'transparent'"
         [style.color]="store.role() === r.role ? '#2A2310' : 'var(--cb-mut)'"
         (click)="store.demoSetRole(r.role)"
@@ -138,6 +138,6 @@
         {{ r.label }}
       </button>
     }
-    <button type="button" style="font-size: 11.5px; padding: 5px 10px; border-radius: 8px; cursor: pointer; border: 1px solid var(--cb-line-2); background: transparent; color: var(--cb-mut-2)" (click)="store.startDemo()">Reset</button>
+    <button type="button" class="cb-demo__btn cb-demo__reset" (click)="store.startDemo()">Reset</button>
   </div>
 }

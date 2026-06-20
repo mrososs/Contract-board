@@ -17,7 +17,7 @@ import { BoardStore } from '@contract-board/data-access';
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </span>
-        <span style="font-size: 13px; color: var(--cb-ink)">{{ store.toast() }}</span>
+        <span class="cb-toast__text">{{ store.toast() }}</span>
       </div>
     </div>
   `,
@@ -50,6 +50,10 @@ import { BoardStore } from '@contract-board/data-access';
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+      .cb-toast__text {
+        font-size: 13px;
+        color: var(--cb-ink);
       }
     `,
   ],

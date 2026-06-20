@@ -147,4 +147,44 @@
     margin: 14px 0 0;
     line-height: 1.5;
   }
+
+  &__body {
+    padding: 34px 36px 30px;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__brand-name {
+    font-family: var(--xp-serif);
+    font-size: 18px;
+    color: var(--cb-ink);
+    font-weight: 500;
+  }
+
+  &__who {
+    color: var(--cb-frontend);
+    font-style: normal;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+  }
+
+  &__demo {
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px;
+    font-size: 13px;
+    color: var(--cb-mut);
+    background: transparent;
+    border: 1px dashed var(--cb-line-3);
+    border-radius: 10px;
+    cursor: pointer;
+  }
 }

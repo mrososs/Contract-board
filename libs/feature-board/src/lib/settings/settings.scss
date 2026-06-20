@@ -40,3 +40,131 @@
     cursor: default;
   }
 }
+
+.cb-set {
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  &__intro {
+    font-size: 12.5px;
+    color: var(--cb-mut-2);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  &__intro-strong {
+    color: var(--cb-ink);
+  }
+
+  &__code {
+    font-family: ui-monospace, monospace;
+  }
+
+  &__card {
+    padding: 18px 20px;
+  }
+
+  &__card-title {
+    font-family: var(--xp-serif);
+    font-size: 16px;
+    color: var(--cb-ink);
+    margin-bottom: 14px;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__label {
+    font-size: 11px;
+    color: var(--cb-mut-2);
+  }
+
+  &__test-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__test-msg {
+    font-size: 11.5px;
+  }
+
+  &__checkbox {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12.5px;
+    color: var(--cb-ink);
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 13px;
+    background: var(--cb-ink-bg);
+    border: 1px solid var(--cb-line-2);
+    border-radius: 9px;
+  }
+
+  &__row-main {
+    min-width: 0;
+  }
+
+  &__row-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__row-name {
+    font-size: 13px;
+    color: var(--cb-ink);
+    font-weight: 600;
+  }
+
+  &__row-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 999px;
+  }
+
+  &__row-spec {
+    font-size: 11px;
+    color: var(--cb-mut-2);
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__row-figma {
+    font-size: 11px;
+    color: var(--cb-mut-2);
+    margin-top: 2px;
+  }
+
+  &__empty {
+    font-size: 12px;
+    color: var(--cb-mut-3);
+  }
+}

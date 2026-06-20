@@ -7,60 +7,60 @@
   @if (store.genOpen() && store.selected(); as sel) {
     <div class="cb-modal" role="dialog" aria-modal="true" aria-label="Generate TypeScript" [cbFocusTrap]="store.genOpen()" (click)="stop($event)">
       <div class="cb-modal__head">
-        <div style="display: flex; align-items: center; gap: 10px">
+        <div class="cb-gt__head-title">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#CBA86E" stroke-width="2"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
-          <span style="font-family: var(--xp-serif); font-size: 18px; color: var(--cb-ink); font-weight: 500">Generate TypeScript</span>
+          <span class="cb-gt__head-label">Generate TypeScript</span>
         </div>
         <button type="button" class="cb-modal__close" (click)="store.closeGen()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
       </div>
 
-      <div style="padding: 18px 22px">
-        <p style="margin: 0 0 12px; font-size: 12.5px; color: var(--cb-mut-2); line-height: 1.5">
+      <div class="cb-gt__body">
+        <p class="cb-gt__intro">
           Run this in your frontend repo to generate typed models + an Angular service for
-          <strong style="color: var(--cb-frontend)">{{ sel.uc }}</strong> from the contract:
+          <strong class="cb-gt__intro-uc">{{ sel.uc }}</strong> from the contract:
         </p>
 
-        <div style="background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 10px; overflow: hidden">
-          <div style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--cb-line-soft)">
-            <span style="width: 9px; height: 9px; border-radius: 50%; background: var(--cb-alert)"></span>
-            <span style="width: 9px; height: 9px; border-radius: 50%; background: var(--cb-frontend)"></span>
-            <span style="width: 9px; height: 9px; border-radius: 50%; background: var(--cb-backend)"></span>
-            <span style="font-family: ui-monospace, monospace; font-size: 10.5px; color: var(--cb-mut-3); margin-left: 6px">ng-openapi-gen</span>
-            <span style="flex: 1"></span>
+        <div class="cb-gt__term-card">
+          <div class="cb-gt__term-bar">
+            <span class="cb-gt__dot cb-gt__dot--alert"></span>
+            <span class="cb-gt__dot cb-gt__dot--frontend"></span>
+            <span class="cb-gt__dot cb-gt__dot--backend"></span>
+            <span class="cb-gt__term-name">ng-openapi-gen</span>
+            <span class="cb-gt__term-spacer"></span>
             <button
               type="button"
               (click)="copy(sel.genCmd)"
-              style="display: flex; align-items: center; gap: 5px; background: none; border: 1px solid var(--cb-line-3); color: var(--cb-mut); border-radius: 6px; padding: 3px 9px; font-size: 10.5px; cursor: pointer"
+              class="cb-gt__copy"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
               {{ copied() ? 'Copied!' : 'Copy' }}
             </button>
           </div>
-          <pre class="cb-term" style="white-space: pre-wrap; word-break: break-all"><span style="color: var(--cb-mut-2)">$</span> {{ sel.genCmd }}</pre>
+          <pre class="cb-term cb-gt__term-pre"><span class="cb-gt__term-prompt">$</span> {{ sel.genCmd }}</pre>
         </div>
 
         @if (!sel.specUrl) {
-          <p style="margin: 10px 0 0; font-size: 11.5px; color: var(--cb-alert)">
+          <p class="cb-gt__no-spec">
             No spec URL configured for this project yet — a PM/lead can set it in Settings.
           </p>
         }
 
-        <div style="margin-top: 14px; font-size: 11px; color: var(--cb-mut-2); margin-bottom: 6px">Endpoints this task covers</div>
-        <div style="background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 10px; padding: 6px 12px">
+        <div class="cb-gt__ep-label">Endpoints this task covers</div>
+        <div class="cb-gt__ep-list">
           @for (ep of store.taskLinks().endpoints; track ep.id) {
-            <div style="display: flex; align-items: center; gap: 8px; padding: 5px 0">
-              <span style="width: 7px; height: 7px; border-radius: 50%; flex: none" [style.background]="ep.present ? 'var(--cb-backend)' : 'var(--cb-mut-3)'"></span>
-              <span style="font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--cb-ink)">{{ ep.endpoint || ep.operation_id }}</span>
+            <div class="cb-gt__ep-row">
+              <span class="cb-gt__ep-dot" [style.background]="ep.present ? 'var(--cb-backend)' : 'var(--cb-mut-3)'"></span>
+              <span class="cb-gt__ep-name">{{ ep.endpoint || ep.operation_id }}</span>
             </div>
           } @empty {
-            <div style="font-size: 11px; color: var(--cb-mut-3); padding: 5px 0">No endpoints mapped yet.</div>
+            <div class="cb-gt__ep-empty">No endpoints mapped yet.</div>
           }
         </div>
       </div>
 
-      <div style="padding: 0 22px 20px; display: flex; gap: 10px">
+      <div class="cb-gt__footer">
         <button type="button" class="cb-modal__cancel" (click)="store.closeGen()">Cancel</button>
         <button type="button" class="cb-modal__confirm" (click)="store.confirmGen()">Mark generated &amp; set Integration &rarr;</button>
       </div>

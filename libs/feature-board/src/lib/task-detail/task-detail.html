@@ -19,118 +19,118 @@
   @if (store.selected(); as sel) {
     <div class="cb-panel__head">
       <div>
-        <div style="display: flex; align-items: center; gap: 10px">
-          <span style="font-size: 11.5px; font-weight: 700; color: var(--cb-frontend); letter-spacing: 0.04em">{{ sel.uc }}</span>
+        <div class="cb-td__uc-row">
+          <span class="cb-td__uc">{{ sel.uc }}</span>
           <cb-status-pill [label]="sel.cv.label" [fg]="sel.cv.fg" [bg]="sel.cv.bg" />
         </div>
-        <h3 style="font-family: var(--xp-serif); font-size: 22px; font-weight: 500; color: var(--cb-ink); margin: 9px 0 0; letter-spacing: -0.01em">{{ sel.title }}</h3>
+        <h3 class="cb-td__title">{{ sel.title }}</h3>
       </div>
       <button type="button" class="cb-panel__close" (click)="store.closeTask()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
       </button>
     </div>
 
-    <div style="flex: 1; overflow: auto; padding: 18px 22px 24px">
+    <div class="cb-td__body">
       @if (sel.hasDiff) {
-        <div style="margin-bottom: 16px; padding: 11px 14px; border-radius: 10px; background: rgba(217, 136, 95, 0.1); border: 1px solid rgba(217, 136, 95, 0.28); display: flex; align-items: center; gap: 10px">
+        <div class="cb-td__banner">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-          <span style="font-size: 12.5px; color: var(--cb-ink)">Design moved <strong style="color: var(--cb-alert)">after</strong> you started — review before continuing.</span>
+          <span class="cb-td__banner-text">Design moved <strong class="cb-td__alert-strong">after</strong> you started — review before continuing.</span>
         </div>
       }
 
       @if (sel.blockNote) {
-        <div style="margin-bottom: 16px; padding: 11px 14px; border-radius: 10px; background: rgba(217, 136, 95, 0.1); border: 1px solid rgba(217, 136, 95, 0.28); display: flex; align-items: flex-start; gap: 10px">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-          <span style="font-size: 12.5px; color: var(--cb-ink)"><strong style="color: var(--cb-alert)">Blocked by Frontend</strong> — {{ sel.blockNote }}<span style="color: var(--cb-mut-3)"> · back to Backend for rework</span></span>
+        <div class="cb-td__banner cb-td__banner--top">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2" class="cb-td__banner-icon"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+          <span class="cb-td__banner-text"><strong class="cb-td__alert-strong">Blocked by Frontend</strong> — {{ sel.blockNote }}<span class="cb-td__banner-mut"> · back to Backend for rework</span></span>
         </div>
       }
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
+      <div class="cb-td__grid">
         <!-- design -->
         <div class="cb-detail-card">
           <div class="cb-detail-card__head">
-            <span class="cb-detail-card__title"><span style="background: var(--cb-design)"></span>Design</span>
+            <span class="cb-detail-card__title cb-detail-card__title--design"><span></span>Design</span>
             <cb-status-pill [label]="sel.dp.label" [fg]="sel.dp.fg" [bg]="sel.dp.bg" [dense]="true" />
           </div>
           @for (sc of store.taskLinks().screens; track sc.id) {
-            <div style="display: flex; align-items: center; gap: 7px; padding: 5px 0; border-bottom: 1px solid var(--cb-line-soft)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--cb-design)" stroke-width="2" style="flex: none"><circle cx="9" cy="5" r="3" /><circle cx="9" cy="19" r="3" /><circle cx="15" cy="12" r="3" /></svg>
+            <div class="cb-td__link-row">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--cb-design)" stroke-width="2" class="cb-td__link-icon"><circle cx="9" cy="5" r="3" /><circle cx="9" cy="19" r="3" /><circle cx="15" cy="12" r="3" /></svg>
               @if (sc.url) {
-                <a [href]="sc.url" target="_blank" rel="noopener" style="font-size: 11.5px; color: var(--cb-design); text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ sc.frame_name || 'Figma screen' }}</a>
+                <a [href]="sc.url" target="_blank" rel="noopener" class="cb-td__link-a">{{ sc.frame_name || 'Figma screen' }}</a>
               } @else {
-                <span style="font-size: 11.5px; color: var(--cb-ink)">{{ sc.frame_name || sc.node_id }}</span>
+                <span class="cb-td__link-name">{{ sc.frame_name || sc.node_id }}</span>
               }
-              <span style="flex: 1"></span>
+              <span class="cb-td__spacer"></span>
               @if (canDesign()) {
-                <button type="button" aria-label="Remove link" style="background: none; border: none; color: var(--cb-mut-3); cursor: pointer; font-size: 14px; line-height: 1" (click)="store.removeLink('screen', sc.id)">×</button>
+                <button type="button" aria-label="Remove link" class="cb-td__remove" (click)="store.removeLink('screen', sc.id)">×</button>
               }
             </div>
           } @empty {
-            <div style="font-size: 11px; color: var(--cb-mut-3); padding: 4px 0">
+            <div class="cb-td__empty">
               {{ canDesign() ? 'No Figma links yet — paste one below.' : 'No design links yet.' }}
             </div>
           }
 
           @if (canDesign()) {
-            <div style="display: flex; gap: 6px; margin-top: 9px">
-              <input type="url" placeholder="Paste Figma screen URL" [value]="newLink()" (input)="newLink.set(val($event))" style="flex: 1; min-width: 0; font-size: 11px; padding: 5px 8px; background: var(--cb-bg); border: 1px solid var(--cb-line-2); border-radius: 6px; color: var(--cb-ink)" />
-              <button type="button" class="cb-detail-btn" style="flex: none; padding: 5px 11px" [disabled]="!newLink().trim()" (click)="addLink()">Add</button>
+            <div class="cb-td__add-row">
+              <input type="url" placeholder="Paste Figma screen URL" [value]="newLink()" (input)="newLink.set(val($event))" class="cb-td__input" />
+              <button type="button" class="cb-detail-btn cb-detail-btn--compact-sm" [disabled]="!newLink().trim()" (click)="addLink()">Add</button>
             </div>
-            <div style="display: flex; gap: 8px; margin-top: 9px">
+            <div class="cb-td__action-row">
               @if (!sel.designReady) {
-                <button type="button" class="cb-detail-btn cb-detail-btn--primary" style="flex: none; padding: 6px 12px" (click)="store.finishDesign()">Finish · Ready for dev</button>
+                <button type="button" class="cb-detail-btn cb-detail-btn--primary cb-detail-btn--compact" (click)="store.finishDesign()">Finish · Ready for dev</button>
               } @else {
-                <button type="button" class="cb-detail-btn" style="flex: none; padding: 6px 12px" (click)="store.reopenDesign()">Reopen</button>
+                <button type="button" class="cb-detail-btn cb-detail-btn--compact" (click)="store.reopenDesign()">Reopen</button>
               }
             </div>
           }
-          <div style="font-size: 11px; color: var(--cb-mut-2); margin-top: 8px">Designer · {{ sel.designer }}</div>
+          <div class="cb-td__meta">Designer · {{ sel.designer }}</div>
         </div>
 
         <!-- backend -->
         <div class="cb-detail-card">
           <div class="cb-detail-card__head">
-            <span class="cb-detail-card__title"><span style="background: var(--cb-backend)"></span>Backend</span>
+            <span class="cb-detail-card__title cb-detail-card__title--backend"><span></span>Backend</span>
             <cb-status-pill [label]="sel.bp.label" [fg]="sel.bp.fg" [bg]="sel.bp.bg" [dense]="true" />
           </div>
-          <div style="display: flex; align-items: center; gap: 8px; background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 8px; padding: 9px 11px">
-            <span style="font-family: ui-monospace, monospace; font-size: 12px; color: var(--cb-ink)">{{ sel.endpoint }}</span>
+          <div class="cb-td__endpoint-box">
+            <span class="cb-td__mono">{{ sel.endpoint }}</span>
           </div>
-          <div style="margin-top: 11px; font-size: 11px; color: var(--cb-mut-2); margin-bottom: 6px">DTOs mapped</div>
-          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <div class="cb-td__label">DTOs mapped</div>
+          <div class="cb-td__chips">
             @for (d of sel.dtoList; track d) {
-              <span style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--cb-mut); background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); padding: 3px 8px; border-radius: 6px">{{ d }}</span>
+              <span class="cb-td__chip">{{ d }}</span>
             }
           </div>
-          <div style="font-size: 11px; color: var(--cb-mut-2); margin-top: 11px">Owner · {{ sel.beDev }}</div>
+          <div class="cb-td__owner">Owner · {{ sel.beDev }}</div>
         </div>
       </div>
 
       <!-- N:N mapping — the endpoints + screens this task needs -->
-      <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
+      <div class="cb-td__grid cb-td__grid--spaced">
         <!-- endpoints -->
         <div class="cb-detail-card">
           <div class="cb-detail-card__head">
-            <span class="cb-detail-card__title"><span style="background: var(--cb-backend)"></span>Endpoints</span>
-            <span style="font-size: 10.5px; color: var(--cb-mut-2)">{{ store.taskLinks().endpoints.length }} mapped</span>
+            <span class="cb-detail-card__title cb-detail-card__title--backend"><span></span>Endpoints</span>
+            <span class="cb-td__count">{{ store.taskLinks().endpoints.length }} mapped</span>
           </div>
           @for (ep of store.taskLinks().endpoints; track ep.id) {
-            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--cb-line-soft)">
-              <span style="width: 7px; height: 7px; border-radius: 50%; flex: none" [style.background]="ep.present ? 'var(--cb-backend)' : 'var(--cb-mut-3)'" [title]="ep.present ? 'present in spec' : 'not in spec yet'"></span>
-              <span style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--cb-ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ ep.operation_id }}</span>
-              @if (ep.is_manual) { <span style="font-size: 9px; color: var(--cb-frontend)">manual</span> }
-              <span style="flex: 1"></span>
+            <div class="cb-td__map-row">
+              <span class="cb-td__dot" [style.background]="ep.present ? 'var(--cb-backend)' : 'var(--cb-mut-3)'" [title]="ep.present ? 'present in spec' : 'not in spec yet'"></span>
+              <span class="cb-td__map-name cb-td__map-name--mono">{{ ep.operation_id }}</span>
+              @if (ep.is_manual) { <span class="cb-td__manual-tag">manual</span> }
+              <span class="cb-td__spacer"></span>
               @if (store.isAdmin() || store.role() === 'pm') {
-                <button type="button" aria-label="Remove endpoint" style="background: none; border: none; color: var(--cb-mut-3); cursor: pointer; font-size: 14px; line-height: 1" (click)="store.removeLink('endpoint', ep.id)">×</button>
+                <button type="button" aria-label="Remove endpoint" class="cb-td__remove" (click)="store.removeLink('endpoint', ep.id)">×</button>
               }
             </div>
           } @empty {
-            <div style="font-size: 11px; color: var(--cb-mut-3); padding: 4px 0">None yet — detected by UC tag, or add one.</div>
+            <div class="cb-td__empty">None yet — detected by UC tag, or add one.</div>
           }
           @if (store.isAdmin()) {
-            <div style="display: flex; gap: 6px; margin-top: 9px">
-              <input type="text" placeholder="operationId" [value]="newOp()" (input)="newOp.set(val($event))" style="flex: 1; min-width: 0; font-size: 11px; padding: 5px 8px; background: var(--cb-bg); border: 1px solid var(--cb-line-2); border-radius: 6px; color: var(--cb-ink); font-family: ui-monospace, monospace" />
-              <button type="button" class="cb-detail-btn" style="flex: none; padding: 5px 11px" [disabled]="!newOp().trim()" (click)="addEndpoint()">Add</button>
+            <div class="cb-td__add-row">
+              <input type="text" placeholder="operationId" [value]="newOp()" (input)="newOp.set(val($event))" class="cb-td__input cb-td__input--mono" />
+              <button type="button" class="cb-detail-btn cb-detail-btn--compact-sm" [disabled]="!newOp().trim()" (click)="addEndpoint()">Add</button>
             </div>
           }
         </div>
@@ -138,40 +138,40 @@
         <!-- screens -->
         <div class="cb-detail-card">
           <div class="cb-detail-card__head">
-            <span class="cb-detail-card__title"><span style="background: var(--cb-design)"></span>Screens</span>
-            <span style="font-size: 10.5px; color: var(--cb-mut-2)">{{ store.taskLinks().screens.length }} mapped</span>
+            <span class="cb-detail-card__title cb-detail-card__title--design"><span></span>Screens</span>
+            <span class="cb-td__count">{{ store.taskLinks().screens.length }} mapped</span>
           </div>
           @for (sc of store.taskLinks().screens; track sc.id) {
-            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--cb-line-soft)">
+            <div class="cb-td__map-row">
               <span
-                style="width: 7px; height: 7px; border-radius: 50%; flex: none"
+                class="cb-td__dot"
                 [style.background]="sc.status === 'ready' ? 'var(--cb-backend)' : sc.status === 'changed' ? 'var(--cb-alert)' : 'var(--cb-mut-3)'"
                 [title]="sc.status"
               ></span>
-              <span style="font-size: 11px; color: var(--cb-ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ sc.frame_name || sc.node_id }}</span>
-              @if (sc.is_manual) { <span style="font-size: 9px; color: var(--cb-frontend)">manual</span> }
-              <span style="flex: 1"></span>
+              <span class="cb-td__map-name">{{ sc.frame_name || sc.node_id }}</span>
+              @if (sc.is_manual) { <span class="cb-td__manual-tag">manual</span> }
+              <span class="cb-td__spacer"></span>
               @if (store.isAdmin() || store.role() === 'pm') {
-                <button type="button" aria-label="Remove screen" style="background: none; border: none; color: var(--cb-mut-3); cursor: pointer; font-size: 14px; line-height: 1" (click)="store.removeLink('screen', sc.id)">×</button>
+                <button type="button" aria-label="Remove screen" class="cb-td__remove" (click)="store.removeLink('screen', sc.id)">×</button>
               }
             </div>
           } @empty {
-            <div style="font-size: 11px; color: var(--cb-mut-3); padding: 4px 0">None yet — detected by UC tag, or add one.</div>
+            <div class="cb-td__empty">None yet — detected by UC tag, or add one.</div>
           }
           @if (store.isAdmin()) {
-            <div style="display: flex; gap: 6px; margin-top: 9px">
-              <input type="text" placeholder="node id" [value]="newNode()" (input)="newNode.set(val($event))" style="flex: 1; min-width: 0; font-size: 11px; padding: 5px 8px; background: var(--cb-bg); border: 1px solid var(--cb-line-2); border-radius: 6px; color: var(--cb-ink); font-family: ui-monospace, monospace" />
-              <button type="button" class="cb-detail-btn" style="flex: none; padding: 5px 11px" [disabled]="!newNode().trim()" (click)="addScreen()">Add</button>
+            <div class="cb-td__add-row">
+              <input type="text" placeholder="node id" [value]="newNode()" (input)="newNode.set(val($event))" class="cb-td__input cb-td__input--mono" />
+              <button type="button" class="cb-detail-btn cb-detail-btn--compact-sm" [disabled]="!newNode().trim()" (click)="addScreen()">Add</button>
             </div>
           }
         </div>
       </div>
 
       @if (sel.hasDiff) {
-        <div style="margin-top: 14px; background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 12px; overflow: hidden">
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 11px 15px; border-bottom: 1px solid var(--cb-line)">
-            <span style="font-size: 12px; font-weight: 700; color: var(--cb-ink)">DTO diff · <span style="font-family: ui-monospace, monospace; color: var(--cb-mut); font-weight: 500">BookingRequest</span></span>
-            <span style="font-size: 11px; color: var(--cb-alert)">3 changes</span>
+        <div class="cb-td__diff-box">
+          <div class="cb-td__diff-head">
+            <span class="cb-td__diff-title">DTO diff · <span class="cb-td__diff-title-mono">BookingRequest</span></span>
+            <span class="cb-td__diff-count">3 changes</span>
           </div>
           <pre class="cb-diff">  BookingRequest {{ '{' }}
 <span class="cb-diff--del">-   promoCode: string</span>    checkIn: string
@@ -183,18 +183,18 @@
            owns these; PM / designer / backend stay read-only. -->
       @if (store.role() === 'frontend') {
         @if (sel.scaffolding) {
-          <div style="margin-top: 18px; padding: 11px 14px; border-radius: 10px; display: flex; align-items: flex-start; gap: 10px"
+          <div class="cb-td__scaffold"
             [style.background]="sel.contractReady ? 'rgba(127, 176, 127, 0.1)' : 'rgba(59, 167, 179, 0.1)'"
             [style.border]="sel.contractReady ? '1px solid rgba(127, 176, 127, 0.3)' : '1px solid rgba(59, 167, 179, 0.3)'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" [attr.stroke]="sel.contractReady ? '#7FB07F' : '#3BA7B3'" stroke-width="2" style="flex: none; margin-top: 1px"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" [attr.stroke]="sel.contractReady ? '#7FB07F' : '#3BA7B3'" stroke-width="2" class="cb-td__scaffold-icon"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
             @if (sel.contractReady) {
-              <span style="font-size: 12.5px; color: var(--cb-ink)"><strong style="color: var(--cb-backend)">Contract is ready</strong> — generate types to wire your UI up and move to Integration.</span>
+              <span class="cb-td__scaffold-text"><strong class="cb-td__strong-backend">Contract is ready</strong> — generate types to wire your UI up and move to Integration.</span>
             } @else {
-              <span style="font-size: 12.5px; color: var(--cb-ink)">Building the UI from the design — the <strong style="color: var(--cb-design)">contract isn't ready yet</strong>. Generate types once the backend publishes it to move to Integration.</span>
+              <span class="cb-td__scaffold-text">Building the UI from the design — the <strong class="cb-td__strong-design">contract isn't ready yet</strong>. Generate types once the backend publishes it to move to Integration.</span>
             }
           </div>
         }
-        <div style="margin-top: 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+        <div class="cb-td__actions">
           <button type="button" class="cb-hover-gold cb-detail-btn" (click)="store.openGen()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>Generate types
           </button>
@@ -204,22 +204,22 @@
           </button>
         </div>
         @if (blockerOpen()) {
-          <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
+          <div class="cb-td__blocker">
             <textarea
               rows="2"
               placeholder="Why are you blocked? e.g. createUC3Booking is missing the amount + currency fields"
               [value]="newBlocker()"
               (input)="newBlocker.set(val($event))"
-              style="width: 100%; font-size: 12px; padding: 8px 10px; background: var(--cb-bg); border: 1px solid var(--cb-line-2); border-radius: 8px; color: var(--cb-ink); font-family: inherit; resize: vertical"
+              class="cb-td__textarea"
             ></textarea>
-            <div style="display: flex; gap: 8px">
-              <button type="button" class="cb-detail-btn cb-detail-btn--primary" style="flex: none; padding: 8px 14px" [disabled]="!newBlocker().trim()" (click)="raiseBlocker()">Send blocker to backend</button>
-              <button type="button" class="cb-detail-btn" style="flex: none; padding: 8px 14px" (click)="blockerOpen.set(false)">Cancel</button>
+            <div class="cb-td__blocker-actions">
+              <button type="button" class="cb-detail-btn cb-detail-btn--primary cb-detail-btn--compact-lg" [disabled]="!newBlocker().trim()" (click)="raiseBlocker()">Send blocker to backend</button>
+              <button type="button" class="cb-detail-btn cb-detail-btn--compact-lg" (click)="blockerOpen.set(false)">Cancel</button>
             </div>
           </div>
         }
       } @else {
-        <div style="margin-top: 18px; font-size: 12px; color: var(--cb-mut-3)">
+        <div class="cb-td__readonly">
           {{ store.isAdmin() ? 'Read-only — admins track progress, the assigned dev moves the work.' : 'View only for your role.' }}
         </div>
       }
