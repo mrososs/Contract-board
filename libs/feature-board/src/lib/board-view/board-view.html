@@ -80,7 +80,7 @@
               <div style="font-size: 10.5px; color: var(--cb-mut-3); margin: 0 0 14px 17px">{{ lane.sub }}</div>
               <div style="display: flex; flex-direction: column; gap: 10px">
                 @for (item of lane.items; track item.uc) {
-                  <div class="cb-hover-lift" style="background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 11px; padding: 12px; display: flex; flex-direction: column; gap: 9px; cursor: pointer" (click)="item.open($event)">
+                  <div class="cb-hover-lift" role="button" tabindex="0" [attr.aria-label]="item.uc + ' · ' + item.title" style="background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 11px; padding: 12px; display: flex; flex-direction: column; gap: 9px; cursor: pointer" (click)="item.open($event)" (keydown.enter)="activate($event, item.open)" (keydown.space)="activate($event, item.open)">
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px">
                       <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; color: var(--cb-mut)">{{ item.uc }}</span>
                       <cb-status-pill [label]="item.pill.label" [fg]="item.pill.fg" [bg]="item.pill.bg" [dense]="true" />
@@ -109,7 +109,7 @@
             <span class="cb-matrix__th" style="color: var(--cb-backend)"><span style="background: var(--cb-backend)"></span>BACKEND</span>
           </div>
           @for (t of store.tasks(); track t.uc) {
-            <div class="cb-matrix__row cb-hover-row" (click)="t.open($event)">
+            <div class="cb-matrix__row cb-hover-row" role="button" tabindex="0" [attr.aria-label]="t.uc + ' · ' + t.title" (click)="t.open($event)" (keydown.enter)="activate($event, t.open)" (keydown.space)="activate($event, t.open)">
               <span style="font-size: 11.5px; font-weight: 600; color: var(--cb-mut)">{{ t.uc }}</span>
               <div>
                 <div style="font-size: 13.5px; color: var(--cb-ink); line-height: 1.3">{{ t.title }}</div>
@@ -135,7 +135,7 @@
               </div>
               <div style="display: flex; flex-direction: column; gap: 9px">
                 @for (t of g.items; track t.uc) {
-                  <div class="cb-hover-gold" style="background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 10px; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer" (click)="t.open($event)">
+                  <div class="cb-hover-gold" role="button" tabindex="0" [attr.aria-label]="t.uc + ' · ' + t.title" style="background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 10px; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer" (click)="t.open($event)" (keydown.enter)="activate($event, t.open)" (keydown.space)="activate($event, t.open)">
                     <div style="min-width: 0">
                       <div style="font-size: 10px; font-weight: 600; color: var(--cb-mut); letter-spacing: 0.04em">{{ t.uc }}</div>
                       <div style="font-size: 13px; color: var(--cb-ink); line-height: 1.3; margin-top: 2px">{{ t.title }}</div>

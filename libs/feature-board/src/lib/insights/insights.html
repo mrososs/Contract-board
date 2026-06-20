@@ -87,7 +87,7 @@
       <div style="font-size: 13px; font-weight: 700; color: var(--cb-ink); margin-bottom: 15px">What's blocked</div>
       <div style="display: flex; flex-direction: column; gap: 10px">
         @for (b of store.blockers(); track b.uc) {
-          <div class="cb-hover-gold" style="display: flex; align-items: flex-start; gap: 11px; background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 11px; padding: 12px 13px; cursor: pointer" (click)="b.open($event)">
+          <div class="cb-hover-gold" role="button" tabindex="0" [attr.aria-label]="b.uc + ' · ' + b.title" style="display: flex; align-items: flex-start; gap: 11px; background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 11px; padding: 12px 13px; cursor: pointer" (click)="b.open($event)" (keydown.enter)="activate($event, b.open)" (keydown.space)="activate($event, b.open)">
             <span style="width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex: none" [style.background]="b.fg"></span>
             <div style="min-width: 0">
               <div style="display: flex; align-items: center; gap: 8px">

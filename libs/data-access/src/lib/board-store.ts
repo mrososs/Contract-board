@@ -12,30 +12,11 @@ import {
   Role,
   Task,
 } from './models';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { buildMyGroups, MyWorkGroup } from './my-work-groups';
 import { SupabaseService } from './supabase.service';
 import { conv, deriveConv, initials, pill, roleInfo, TRACK } from './tokens';
 
-export interface MyWorkCard {
-  uc: string;
-  title: string;
-  sub: string;
-  statusPill: Pill;
-  who: string;
-  whoName: string;
-  whoColor: string;
-  ctaLabel: string;
-  cta: (e?: Event) => void;
-  /** Optional secondary action (e.g. "Stop" alongside "Mark done"). */
-  cta2Label?: string;
-  cta2?: (e?: Event) => void;
-  open: (e?: Event) => void;
-}
-export interface MyWorkGroup {
-  label: string;
-  fg: string;
-  count: number;
-  items: MyWorkCard[];
-}
 export interface LaneItem {
   uc: string;
   title: string;
@@ -65,6 +46,27 @@ export interface Blocker {
   reason: string;
   fg: string;
   open: (e?: Event) => void;
+}
+
+/** A detected event for the activity feed (B4) — design ready, contract ready… */
+export interface ActivityItem {
+  id: string;
+  kind: string;
+  actor: string | null;
+  message: string;
+  created_at: string;
+  uc?: string | null;
+  title?: string | null;
+}
+
+/** A raw `activity` row as broadcast by the DB (snake_case, no task meta). */
+interface ActivityRow {
+  id: string;
+  task_id: number | null;
+  kind: string;
+  actor: string | null;
+  message: string;
+  created_at: string;
 }
 
 /** The session shape the store needs — passed in by AuthStore (avoids a cycle). */
@@ -121,6 +123,16 @@ export class BoardStore {
   /** The team that has signed in (display_name + chosen role) — drives Insights. */
   readonly members = signal<{ display_name: string; role: Role; is_admin: boolean }[]>([]);
 
+  // ---- activity feed (B4) + realtime (B3) ---------------------------------
+  /** Detected events, newest first — design/contract ready, DTO changed, done. */
+  readonly activity = signal<ActivityItem[]>([]);
+  readonly activityOpen = signal(false);
+  /** Events that arrived while the feed was closed — drives the bell badge. */
+  readonly activityUnread = signal(0);
+
+  /** The live 'board' broadcast channel; torn down on reset. */
+  private channel: RealtimeChannel | null = null;
+
   // ---- admin: sprint setup ------------------------------------------------
   readonly sprintName = signal<string>('');
   readonly projects = signal<string[]>([]);
@@ -174,7 +186,14 @@ export class BoardStore {
 
   // ---- derived: My Work (role-focused) ------------------------------------
   readonly myGroups = computed<MyWorkGroup[]>(() =>
-    this.buildMyGroups(this.role(), this.tasks()),
+    buildMyGroups(this.role(), this.tasks(), {
+      me: this.identity().name,
+      toastCta: (msg) => this.toastCta(msg),
+      openCta: (uc) => this.openCta(uc),
+      startCta: (id) => this.startCta(id),
+      stopCta: (id) => this.stopCta(id),
+      doneCta: (id) => this.doneCta(id),
+    }),
   );
 
   // ---- derived: Board · Lanes ---------------------------------------------
@@ -298,6 +317,75 @@ export class BoardStore {
     this.nav.set('mywork');
     await this.loadBoard();
     this.loadMembers();
+    this.loadActivity();
+    this.subscribeRealtime();
+  }
+
+  // ---- realtime (B3) ------------------------------------------------------
+  /**
+   * Subscribe to the live 'board' broadcast (migration 0006). The DB broadcasts
+   * each task / activity change to a public channel, so the browser stays live
+   * without anon table-read access — we patch `rawTasks` and prepend `activity`
+   * in place instead of refetching the whole board on every change.
+   */
+  private subscribeRealtime(): void {
+    if (this.channel) return;
+    this.channel = this.supabase.client
+      .channel('board')
+      .on('broadcast', { event: 'task' }, ({ payload }) => this.onTaskBroadcast(payload as TaskRow))
+      .on('broadcast', { event: 'activity' }, ({ payload }) => this.onActivityBroadcast(payload as ActivityRow))
+      .subscribe();
+  }
+
+  /** A single task changed elsewhere — patch it into the board in place. */
+  private onTaskBroadcast(row: TaskRow | null): void {
+    if (!row || row.id == null) return;
+    const task = this.rowToTask(row);
+    this.rawTasks.update((list) => {
+      const i = list.findIndex((t) => t.azureId === task.azureId);
+      if (i === -1) return [...list, task];
+      const copy = list.slice();
+      copy[i] = task;
+      return copy;
+    });
+    if (this.override() === 'empty' && this.rawTasks().length) this.override.set(null);
+  }
+
+  /** A new detected event — prepend to the feed and badge it if the feed is shut. */
+  private onActivityBroadcast(row: ActivityRow | null): void {
+    if (!row || !row.id) return;
+    const meta = this.rawTasks().find((t) => t.azureId === row.task_id);
+    const item: ActivityItem = {
+      id: row.id,
+      kind: row.kind,
+      actor: row.actor,
+      message: row.message,
+      created_at: row.created_at,
+      uc: meta?.uc ?? null,
+      title: meta?.title ?? null,
+    };
+    this.activity.update((list) => (list.some((a) => a.id === item.id) ? list : [item, ...list].slice(0, 50)));
+    if (!this.activityOpen()) this.activityUnread.update((n) => n + 1);
+  }
+
+  // ---- activity feed (B4) -------------------------------------------------
+  /** Load recent detected events (history) for the active sprint. */
+  async loadActivity(): Promise<void> {
+    try {
+      const res = await this.supabase.invoke<{ activity: ActivityItem[] }>('getActivity');
+      this.activity.set(res.activity ?? []);
+    } catch {
+      /* non-fatal — live broadcasts still populate the feed */
+    }
+  }
+
+  toggleActivity(): void {
+    const open = !this.activityOpen();
+    this.activityOpen.set(open);
+    if (open) this.activityUnread.set(0);
+  }
+  closeActivity(): void {
+    this.activityOpen.set(false);
   }
 
   /** Fetch the active sprint's tasks from Supabase. */
@@ -478,9 +566,16 @@ export class BoardStore {
   /** Reset transient + session state when leaving the app (sign out). */
   reset(): void {
     if (this.toastTimer) clearTimeout(this.toastTimer);
+    if (this.channel) {
+      this.supabase.client.removeChannel(this.channel);
+      this.channel = null;
+    }
     this.creds = null;
     this.rawTasks.set([]);
     this.members.set([]);
+    this.activity.set([]);
+    this.activityOpen.set(false);
+    this.activityUnread.set(0);
     this.projects.set([]);
     this.iterations.set([]);
     this.selectedProject.set('');
@@ -526,151 +621,5 @@ export class BoardStore {
       e?.stopPropagation();
       this.doneWork(azureId);
     };
-  }
-
-  // ---- My Work group builders (per role) ----------------------------------
-  private buildMyGroups(role: Role, tasks: DecoratedTask[]): MyWorkGroup[] {
-    const G = TRACK.frontend, T = TRACK.design, S = TRACK.backend, R = TRACK.alert, M = TRACK.slate;
-    const card = (
-      t: DecoratedTask,
-      o: {
-        sub: string;
-        pill: Pill;
-        who: string;
-        color: string;
-        ctaLabel: string;
-        cta: (e?: Event) => void;
-        cta2Label?: string;
-        cta2?: (e?: Event) => void;
-      },
-    ): MyWorkCard => ({
-      uc: t.uc,
-      title: t.title,
-      sub: o.sub,
-      statusPill: o.pill,
-      who: initials(o.who),
-      whoName: o.who,
-      whoColor: o.color,
-      ctaLabel: o.ctaLabel,
-      cta: o.cta,
-      cta2Label: o.cta2Label,
-      cta2: o.cta2,
-      open: t.open,
-    });
-    const grp = (label: string, fg: string, items: MyWorkCard[]): MyWorkGroup => ({
-      label,
-      fg,
-      items,
-      count: items.length,
-    });
-
-    if (role === 'designer') {
-      const mk = (t: DecoratedTask) => {
-        let sub: string, ctaLabel: string, msg: string;
-        if (t.d === 'design_wip') {
-          sub = 'In Figma · ' + (t.feDev !== '—' ? t.feDev + ' waiting' : 'FE unassigned');
-          ctaLabel = 'Mark Ready for dev';
-          msg = t.uc + ' marked Ready for development · FE notified';
-        } else if (t.d === 'todo') {
-          sub = 'Not started yet';
-          ctaLabel = 'Start in Figma';
-          msg = 'Started a frame for ' + t.uc;
-        } else if (t.d === 'design_ready') {
-          sub = 'Handed off · ' + t.feDev + ' notified';
-          ctaLabel = 'Open frame';
-          msg = 'Opening ' + t.uc + ' in Figma';
-        } else {
-          sub = 'Edited after handoff · FE alerted';
-          ctaLabel = 'Re-export & notify FE';
-          msg = t.uc + ' re-exported · ' + t.feDev + ' alerted';
-        }
-        return card(t, { sub, pill: pill(t.d), who: t.designer, color: T, ctaLabel, cta: this.toastCta(msg) });
-      };
-      return [
-        grp('Designing now', G, tasks.filter((t) => t.d === 'design_wip').map(mk)),
-        grp('Up next', M, tasks.filter((t) => t.d === 'todo').map(mk)),
-        grp('Ready for development', T, tasks.filter((t) => t.d === 'design_ready').map(mk)),
-        grp('Changed after handoff', R, tasks.filter((t) => t.d === 'design_changed').map(mk)),
-      ].filter((g) => g.count);
-    }
-
-    if (role === 'frontend' || role === 'backend') {
-      const me = this.identity().name;
-      const startedBy = (t: DecoratedTask) => (role === 'frontend' ? t.feStartedBy : t.beStartedBy);
-      const trackPill = (t: DecoratedTask) => (role === 'frontend' ? t.fp : t.bp);
-      const isDone = (t: DecoratedTask) => (role === 'frontend' ? t.f === 'fe_done' : t.b === 'be_done');
-      const trackColor = role === 'frontend' ? G : S;
-      const working = (t: DecoratedTask) =>
-        card(t, {
-          sub: 'You started this story',
-          pill: trackPill(t),
-          who: me,
-          color: trackColor,
-          ctaLabel: 'Mark done',
-          cta: this.doneCta(t.azureId),
-          cta2Label: 'Stop',
-          cta2: this.stopCta(t.azureId),
-        });
-      const available = (t: DecoratedTask) =>
-        card(t, {
-          sub: 'Tap Start to claim this story',
-          pill: trackPill(t),
-          who: role === 'frontend' ? t.feDev : t.beDev,
-          color: trackColor,
-          ctaLabel: 'Start',
-          cta: this.startCta(t.azureId),
-        });
-      const done = (t: DecoratedTask) =>
-        card(t, {
-          sub: 'Done by you',
-          pill: trackPill(t),
-          who: me,
-          color: S,
-          ctaLabel: 'Open',
-          cta: this.openCta(t.uc),
-        });
-      const taken = (t: DecoratedTask) =>
-        card(t, {
-          sub: 'Started by ' + startedBy(t),
-          pill: trackPill(t),
-          who: startedBy(t) || '—',
-          color: M,
-          ctaLabel: 'Open',
-          cta: this.openCta(t.uc),
-        });
-      return [
-        grp('Working on', trackColor, tasks.filter((t) => startedBy(t) === me && !isDone(t)).map(working)),
-        grp('Available to start', T, tasks.filter((t) => !startedBy(t) && !isDone(t) && !t.closed).map(available)),
-        grp('Done', S, tasks.filter((t) => startedBy(t) === me && isDone(t)).map(done)),
-        grp('Taken by the team', M, tasks.filter((t) => startedBy(t) && startedBy(t) !== me && !isDone(t)).map(taken)),
-      ].filter((g) => g.count);
-    }
-
-    if (role === 'pm') {
-      // Read-only oversight: who's working on what, and what's finished.
-      const doneish = (t: DecoratedTask) => t.closed || (t.f === 'fe_done' && t.b === 'be_done');
-      const started = (t: DecoratedTask) => !!(t.feStartedBy || t.beStartedBy);
-      const owners = (t: DecoratedTask) => 'FE: ' + (t.feStartedBy || '—') + ' · BE: ' + (t.beStartedBy || '—');
-      const doneSub = (t: DecoratedTask) =>
-        [t.f === 'fe_done' ? 'FE done' : '', t.b === 'be_done' ? 'BE done' : '', t.closed ? 'Closed in Azure' : '']
-          .filter(Boolean)
-          .join(' · ') || 'Done';
-      const mk = (sub: (t: DecoratedTask) => string, color: string) => (t: DecoratedTask) =>
-        card(t, {
-          sub: sub(t),
-          pill: t.cv,
-          who: t.feStartedBy || t.beStartedBy || t.feDev,
-          color,
-          ctaLabel: 'Open',
-          cta: this.openCta(t.uc),
-        });
-      return [
-        grp('In progress', G, tasks.filter((t) => started(t) && !doneish(t)).map(mk(owners, G))),
-        grp('Done', S, tasks.filter((t) => doneish(t)).map(mk(doneSub, S))),
-        grp('Not started yet', M, tasks.filter((t) => !started(t) && !doneish(t)).map(mk(() => 'No one has started this yet', M))),
-      ].filter((g) => g.count);
-    }
-
-    return [];
   }
 }

@@ -5,7 +5,7 @@
   (click)="store.closeGen()"
 >
   @if (store.genOpen() && store.selected(); as sel) {
-    <div class="cb-modal" (click)="stop($event)">
+    <div class="cb-modal" role="dialog" aria-modal="true" aria-label="Generate TypeScript" [cbFocusTrap]="store.genOpen()" (click)="stop($event)">
       <div class="cb-modal__head">
         <div style="display: flex; align-items: center; gap: 10px">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#CBA86E" stroke-width="2"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>

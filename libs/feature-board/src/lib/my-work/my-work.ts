@@ -11,4 +11,10 @@ import { StatusPill } from '@contract-board/ui';
 })
 export class MyWork {
   protected readonly store = inject(BoardStore);
+
+  /** Keyboard activation for role="button" cards (Enter/Space → open). */
+  protected activate(e: Event, open: (e?: Event) => void): void {
+    e.preventDefault();
+    open(e);
+  }
 }

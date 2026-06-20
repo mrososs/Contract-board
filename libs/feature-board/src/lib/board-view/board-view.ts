@@ -18,4 +18,10 @@ import { StatusPill } from '@contract-board/ui';
 })
 export class BoardView {
   protected readonly store = inject(BoardStore);
+
+  /** Keyboard activation for role="button" cards/rows (Enter/Space → open). */
+  protected activate(e: Event, open: (e?: Event) => void): void {
+    e.preventDefault();
+    open(e);
+  }
 }

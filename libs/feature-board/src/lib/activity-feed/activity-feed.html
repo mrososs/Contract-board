@@ -1,0 +1,50 @@
+<!-- scrim -->
+<div
+  class="cb-af-scrim"
+  [style.opacity]="open() ? '1' : '0'"
+  [style.pointerEvents]="open() ? 'auto' : 'none'"
+  (click)="store.closeActivity()"
+></div>
+
+<!-- panel -->
+<aside
+  class="cb-af"
+  role="dialog"
+  aria-label="Activity feed"
+  [cbFocusTrap]="open()"
+  [attr.inert]="open() ? null : ''"
+  [style.transform]="open() ? 'translateX(0)' : 'translateX(100%)'"
+>
+  <header class="cb-af__head">
+    <div>
+      <h2 class="cb-af__title">Activity</h2>
+      <p class="cb-af__sub">Detected handoff signals</p>
+    </div>
+    <button type="button" class="cb-af__close" aria-label="Close activity feed" (click)="store.closeActivity()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+    </button>
+  </header>
+
+  <div class="cb-af__body">
+    @for (r of rows(); track r.id) {
+      <article class="cb-af__row">
+        <span class="cb-af__dot" [style.background]="r.dot"></span>
+        <div class="cb-af__main">
+          <div class="cb-af__line">
+            <span class="cb-af__tag" [style.color]="r.dot">{{ r.tag }}</span>
+            @if (r.uc) { <span class="cb-af__uc">{{ r.uc }}</span> }
+            <span class="cb-af__ago">{{ r.ago }}</span>
+          </div>
+          <div class="cb-af__msg">{{ r.message }}</div>
+          @if (r.title) { <div class="cb-af__ctx">{{ r.title }}</div> }
+        </div>
+      </article>
+    } @empty {
+      <div class="cb-af__empty">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+        <p>No activity yet.</p>
+        <span>Design Ready, Contract Ready and DTO changes will appear here as the sync workers detect them.</span>
+      </div>
+    }
+  </div>
+</aside>

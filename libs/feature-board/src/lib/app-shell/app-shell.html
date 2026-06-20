@@ -79,6 +79,12 @@
         <div style="display: flex; align-items: center; gap: 7px; white-space: nowrap; font-size: 11.5px; color: var(--cb-backend)">
           <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--cb-backend); box-shadow: 0 0 0 3px rgba(127, 176, 127, 0.16)"></span>Live
         </div>
+        <button type="button" class="cb-bell" [class.cb-bell--on]="store.activityOpen()" aria-label="Activity feed" (click)="store.toggleActivity()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+          @if (store.activityUnread() > 0) {
+            <span class="cb-bell__badge">{{ store.activityUnread() > 9 ? '9+' : store.activityUnread() }}</span>
+          }
+        </button>
         @if (!standalone()) {
           <button type="button" class="cb-install cb-btn-gold" (click)="install()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>Install
@@ -100,4 +106,5 @@
 <!-- ================= OVERLAYS ================= -->
 <cb-task-detail />
 <cb-generate-types />
+<cb-activity-feed />
 <cb-toast />

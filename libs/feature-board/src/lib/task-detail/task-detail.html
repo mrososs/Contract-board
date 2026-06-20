@@ -7,7 +7,15 @@
 ></div>
 
 <!-- panel -->
-<div class="cb-panel" [style.transform]="open() ? 'translateX(0)' : 'translateX(100%)'">
+<div
+  class="cb-panel"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Task detail"
+  [cbFocusTrap]="open()"
+  [attr.inert]="open() ? null : ''"
+  [style.transform]="open() ? 'translateX(0)' : 'translateX(100%)'"
+>
   @if (store.selected(); as sel) {
     <div class="cb-panel__head">
       <div>

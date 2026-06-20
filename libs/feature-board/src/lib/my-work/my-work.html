@@ -20,8 +20,13 @@
           @for (it of g.items; track it.uc) {
             <div
               class="cb-hover-gold"
+              role="button"
+              tabindex="0"
+              [attr.aria-label]="it.uc + ' · ' + it.title"
               style="background: var(--cb-card); border: 1px solid var(--cb-line); border-radius: 11px; padding: 12px 13px; cursor: pointer"
               (click)="it.open($event)"
+              (keydown.enter)="activate($event, it.open)"
+              (keydown.space)="activate($event, it.open)"
             >
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
                 <span style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--cb-mut)">{{ it.uc }}</span>

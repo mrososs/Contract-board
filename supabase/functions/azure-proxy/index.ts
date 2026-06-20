@@ -13,11 +13,17 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// The one identity flagged as admin (sets the active Project/Sprint + pulls the
-// board). Matched case-insensitively against the Azure-resolved unique name,
-// and on the local-part prefix so org email variants still match.
-const ADMIN_EMAIL = 'mohamed.osama@obeikan.com.sa';
-const ADMIN_PREFIX = 'mohamed.osama';
+// Admin identities (set the active Project/Sprint + pull the board). Read from
+// the ADMIN_EMAILS secret (comma-separated) so adding/removing an admin needs no
+// code change + redeploy (A1). Falls back to the original owner when the secret
+// isn't set, so deploying this can never lock the admin out — once you set
+// `ADMIN_EMAILS` the fallback is dead weight and can be removed. Matched
+// case-insensitively against the Azure-resolved unique name, and on the
+// local-part prefix so org email variants still match.
+const ADMIN_EMAILS = (Deno.env.get('ADMIN_EMAILS') ?? 'mohamed.osama@obeikan.com.sa')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 const AZURE_API = '7.1';
 
@@ -41,6 +47,7 @@ interface ProxyRequest {
     | 'listIterations'
     | 'pullSprint'
     | 'getBoard'
+    | 'getActivity'
     | 'listMembers'
     | 'startWork'
     | 'stopWork'
@@ -87,7 +94,10 @@ async function azure(
 
 function isAdmin(uniqueName: string): boolean {
   const u = (uniqueName ?? '').toLowerCase();
-  return u === ADMIN_EMAIL.toLowerCase() || u.startsWith(ADMIN_PREFIX);
+  return ADMIN_EMAILS.some((e) => {
+    const prefix = e.split('@')[0];
+    return u === e || (!!prefix && u.startsWith(prefix));
+  });
 }
 
 /**
@@ -313,6 +323,46 @@ async function pullSprint(p: Record<string, unknown>) {
   return board(sprintId);
 }
 
+/**
+ * Recent detected events for the active sprint (Design Ready, Contract Ready,
+ * DTO changed, FE/BE done …) — feeds the activity panel. Reads use the service
+ * role so the browser never queries the table directly; live updates arrive via
+ * the Realtime 'board' broadcast (see migration 0006).
+ */
+async function getActivity() {
+  const { data: sprintRow } = await db
+    .from('sprint')
+    .select('id')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!sprintRow) return { activity: [] };
+
+  const { data: tasks } = await db
+    .from('task')
+    .select('id, uc, title')
+    .eq('sprint_id', sprintRow.id);
+  const ids = (tasks ?? []).map((t) => t.id);
+  if (!ids.length) return { activity: [] };
+  const meta = new Map((tasks ?? []).map((t) => [t.id, { uc: t.uc, title: t.title }]));
+
+  const { data } = await db
+    .from('activity')
+    .select('id, task_id, kind, actor, message, created_at')
+    .in('task_id', ids)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  return {
+    activity: (data ?? []).map((a) => ({
+      ...a,
+      uc: meta.get(a.task_id)?.uc ?? null,
+      title: meta.get(a.task_id)?.title ?? null,
+    })),
+  };
+}
+
 /** The team that has signed in, with the lens each picked — drives Insights. */
 async function listMembers() {
   const { data } = await db
@@ -505,6 +555,8 @@ Deno.serve(async (req) => {
         return ok(await pullSprint(payload));
       case 'getBoard':
         return ok(await getBoard());
+      case 'getActivity':
+        return ok(await getActivity());
       case 'listMembers':
         return ok(await listMembers());
       case 'startWork':

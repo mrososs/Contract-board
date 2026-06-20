@@ -2,12 +2,18 @@ import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from
 import { Router } from '@angular/router';
 import { AuthStore, BoardStore } from '@contract-board/data-access';
 import { BrandMark } from '@contract-board/ui';
+import { ActivityFeed } from '../activity-feed/activity-feed';
 import { BoardView } from '../board-view/board-view';
 import { GenerateTypes } from '../generate-types/generate-types';
 import { Insights } from '../insights/insights';
 import { MyWork } from '../my-work/my-work';
 import { TaskDetail } from '../task-detail/task-detail';
 import { Toast } from '../toast/toast';
+
+/** The Chromium `beforeinstallprompt` event — not in the standard DOM lib. */
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+}
 
 /**
  * The application shell — sidebar (nav · who you are) + top bar (title · board
@@ -17,7 +23,7 @@ import { Toast } from '../toast/toast';
 @Component({
   selector: 'cb-app-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrandMark, MyWork, BoardView, Insights, TaskDetail, GenerateTypes, Toast],
+  imports: [BrandMark, MyWork, BoardView, Insights, TaskDetail, GenerateTypes, Toast, ActivityFeed],
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.scss',
 })
@@ -33,7 +39,7 @@ export class AppShell {
   ];
 
   /** Captured `beforeinstallprompt` event for the Install button. */
-  private installPrompt: { prompt: () => void } | null = null;
+  private installPrompt: BeforeInstallPromptEvent | null = null;
 
   /** Already running as an installed standalone window? Then hide Install. */
   protected readonly standalone = signal(
@@ -45,7 +51,8 @@ export class AppShell {
   @HostListener('window:beforeinstallprompt', ['$event'])
   onBeforeInstall(e: Event): void {
     e.preventDefault();
-    this.installPrompt = e as unknown as { prompt: () => void };
+    // Only Chromium fires this; guard the shape before keeping it.
+    this.installPrompt = 'prompt' in e ? (e as BeforeInstallPromptEvent) : null;
   }
 
   @HostListener('window:appinstalled')
@@ -71,9 +78,9 @@ export class AppShell {
 
   // ---- admin sprint setup -------------------------------------------------
   protected onProject(e: Event): void {
-    this.store.loadIterations((e.target as HTMLSelectElement).value);
+    if (e.target instanceof HTMLSelectElement) this.store.loadIterations(e.target.value);
   }
   protected onIteration(e: Event): void {
-    this.store.selectedIteration.set((e.target as HTMLSelectElement).value);
+    if (e.target instanceof HTMLSelectElement) this.store.selectedIteration.set(e.target.value);
   }
 }

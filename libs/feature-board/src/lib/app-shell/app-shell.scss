@@ -194,3 +194,40 @@
   align-items: center;
   gap: 7px;
 }
+
+/* ---------------- activity bell ---------------- */
+.cb-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid var(--cb-line-2);
+  background: var(--cb-bg);
+  color: var(--cb-mut);
+  cursor: pointer;
+
+  &--on {
+    color: var(--cb-ink);
+    border-color: var(--cb-line-3);
+    background: rgba(203, 168, 110, 0.1);
+  }
+
+  &__badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--cb-alert);
+    color: #1a1206;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+  }
+}
