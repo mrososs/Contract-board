@@ -73,6 +73,67 @@
         </div>
       </div>
 
+      <!-- N:N mapping — the endpoints + screens this task needs -->
+      <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
+        <!-- endpoints -->
+        <div class="cb-detail-card">
+          <div class="cb-detail-card__head">
+            <span class="cb-detail-card__title"><span style="background: var(--cb-backend)"></span>Endpoints</span>
+            <span style="font-size: 10.5px; color: var(--cb-mut-2)">{{ store.taskLinks().endpoints.length }} mapped</span>
+          </div>
+          @for (ep of store.taskLinks().endpoints; track ep.id) {
+            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--cb-line-soft)">
+              <span style="width: 7px; height: 7px; border-radius: 50%; flex: none" [style.background]="ep.present ? 'var(--cb-backend)' : 'var(--cb-mut-3)'" [title]="ep.present ? 'present in spec' : 'not in spec yet'"></span>
+              <span style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--cb-ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ ep.operation_id }}</span>
+              @if (ep.is_manual) { <span style="font-size: 9px; color: var(--cb-frontend)">manual</span> }
+              <span style="flex: 1"></span>
+              @if (store.isAdmin()) {
+                <button type="button" aria-label="Remove endpoint" style="background: none; border: none; color: var(--cb-mut-3); cursor: pointer; font-size: 14px; line-height: 1" (click)="store.removeLink('endpoint', ep.id)">×</button>
+              }
+            </div>
+          } @empty {
+            <div style="font-size: 11px; color: var(--cb-mut-3); padding: 4px 0">None yet — detected by UC tag, or add one.</div>
+          }
+          @if (store.isAdmin()) {
+            <div style="display: flex; gap: 6px; margin-top: 9px">
+              <input type="text" placeholder="operationId" [value]="newOp()" (input)="newOp.set(val($event))" style="flex: 1; min-width: 0; font-size: 11px; padding: 5px 8px; background: var(--cb-bg); border: 1px solid var(--cb-line-2); border-radius: 6px; color: var(--cb-ink); font-family: ui-monospace, monospace" />
+              <button type="button" class="cb-detail-btn" style="flex: none; padding: 5px 11px" [disabled]="!newOp().trim()" (click)="addEndpoint()">Add</button>
+            </div>
+          }
+        </div>
+
+        <!-- screens -->
+        <div class="cb-detail-card">
+          <div class="cb-detail-card__head">
+            <span class="cb-detail-card__title"><span style="background: var(--cb-design)"></span>Screens</span>
+            <span style="font-size: 10.5px; color: var(--cb-mut-2)">{{ store.taskLinks().screens.length }} mapped</span>
+          </div>
+          @for (sc of store.taskLinks().screens; track sc.id) {
+            <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--cb-line-soft)">
+              <span
+                style="width: 7px; height: 7px; border-radius: 50%; flex: none"
+                [style.background]="sc.status === 'ready' ? 'var(--cb-backend)' : sc.status === 'changed' ? 'var(--cb-alert)' : 'var(--cb-mut-3)'"
+                [title]="sc.status"
+              ></span>
+              <span style="font-size: 11px; color: var(--cb-ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ sc.frame_name || sc.node_id }}</span>
+              @if (sc.is_manual) { <span style="font-size: 9px; color: var(--cb-frontend)">manual</span> }
+              <span style="flex: 1"></span>
+              @if (store.isAdmin()) {
+                <button type="button" aria-label="Remove screen" style="background: none; border: none; color: var(--cb-mut-3); cursor: pointer; font-size: 14px; line-height: 1" (click)="store.removeLink('screen', sc.id)">×</button>
+              }
+            </div>
+          } @empty {
+            <div style="font-size: 11px; color: var(--cb-mut-3); padding: 4px 0">None yet — detected by UC tag, or add one.</div>
+          }
+          @if (store.isAdmin()) {
+            <div style="display: flex; gap: 6px; margin-top: 9px">
+              <input type="text" placeholder="node id" [value]="newNode()" (input)="newNode.set(val($event))" style="flex: 1; min-width: 0; font-size: 11px; padding: 5px 8px; background: var(--cb-bg); border: 1px solid var(--cb-line-2); border-radius: 6px; color: var(--cb-ink); font-family: ui-monospace, monospace" />
+              <button type="button" class="cb-detail-btn" style="flex: none; padding: 5px 11px" [disabled]="!newNode().trim()" (click)="addScreen()">Add</button>
+            </div>
+          }
+        </div>
+      </div>
+
       @if (sel.hasDiff) {
         <div style="margin-top: 14px; background: var(--cb-ink-bg); border: 1px solid var(--cb-line-2); border-radius: 12px; overflow: hidden">
           <div style="display: flex; align-items: center; justify-content: space-between; padding: 11px 15px; border-bottom: 1px solid var(--cb-line)">

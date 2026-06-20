@@ -42,7 +42,7 @@ export type ConvKey =
   | 'wait_be'
   | 'closed';
 
-export type Nav = 'mywork' | 'board' | 'insights';
+export type Nav = 'mywork' | 'board' | 'insights' | 'settings';
 export type BoardLayout = 'lanes' | 'matrix' | 'conv';
 /** Prototype/data-fetch states layered over the board. */
 export type BoardOverride = null | 'loading' | 'empty' | 'error';

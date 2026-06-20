@@ -7,6 +7,7 @@ import { BoardView } from '../board-view/board-view';
 import { GenerateTypes } from '../generate-types/generate-types';
 import { Insights } from '../insights/insights';
 import { MyWork } from '../my-work/my-work';
+import { Settings } from '../settings/settings';
 import { TaskDetail } from '../task-detail/task-detail';
 import { Toast } from '../toast/toast';
 
@@ -23,7 +24,7 @@ interface BeforeInstallPromptEvent extends Event {
 @Component({
   selector: 'cb-app-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrandMark, MyWork, BoardView, Insights, TaskDetail, GenerateTypes, Toast, ActivityFeed],
+  imports: [BrandMark, MyWork, BoardView, Insights, Settings, TaskDetail, GenerateTypes, Toast, ActivityFeed],
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.scss',
 })
@@ -82,5 +83,10 @@ export class AppShell {
   }
   protected onIteration(e: Event): void {
     if (e.target instanceof HTMLSelectElement) this.store.selectedIteration.set(e.target.value);
+  }
+
+  /** Multi-project board switcher. */
+  protected onBoardProject(e: Event): void {
+    if (e.target instanceof HTMLSelectElement) this.store.setBoardProject(e.target.value);
   }
 }

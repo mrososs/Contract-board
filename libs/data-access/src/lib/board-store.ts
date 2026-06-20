@@ -204,6 +204,8 @@ export class BoardStore {
         return this.roleInfo().tab;
       case 'board':
         return this.sprintName() || 'Board';
+      case 'settings':
+        return 'Project sources';
       default:
         return 'Insights';
     }
