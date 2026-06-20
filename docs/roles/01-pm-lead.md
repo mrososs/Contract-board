@@ -3,9 +3,8 @@
 **You start the cycle.** You pull the sprint from Azure and tell each project where its OpenAPI
 spec and Figma file live, so the board can light up the Design and Contract signals.
 
-> Lenses: **pulling a sprint** is done by an Admin on the PM lens (the Pull controls show when
-> `isAdmin` **and** the `pm` lens). **Configuring sources** is open to the **PM/lead lens or an
-> admin** (the Settings tab).
+> Lenses: both **pulling a sprint** and **configuring sources** are open to the **PM/lead lens
+> (`pm`) or an Admin** — the Pull controls and the Settings tab show for either.
 
 ---
 

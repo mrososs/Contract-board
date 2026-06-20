@@ -70,7 +70,7 @@
         }
       </div>
       <div style="display: flex; align-items: center; gap: 14px">
-        @if (store.isAdmin() && store.role() === 'pm') {
+        @if (store.isAdmin() || store.role() === 'pm') {
           <div class="cb-admin">
             <select class="cb-admin__sel" (focus)="store.loadProjects()" (change)="onProject($event)">
               <option value="">Project…</option>
