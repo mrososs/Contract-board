@@ -16,6 +16,7 @@ import {
 } from './models';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { buildMyGroups, MyWorkGroup } from './my-work-groups';
+import { DEMO_ACTIVITY, DEMO_LINKS, DEMO_MEMBERS, DEMO_PROJECTS, DEMO_SOURCES, DEMO_TASKS } from './demo-data';
 import { SupabaseService } from './supabase.service';
 import { conv, deriveConv, initials, pill, roleInfo, TRACK } from './tokens';
 
@@ -127,6 +128,8 @@ export class BoardStore {
   readonly genOpen = signal(false);
   readonly toast = signal('');
   readonly isAdmin = signal(false);
+  /** Self-contained demo/mock mode — backend calls are short-circuited to local mutations. */
+  readonly demoMode = signal(false);
   readonly rawTasks = signal<Task[]>([]);
   /** Multi-project board filter — '' shows every active project, else one. */
   readonly boardProject = signal<string>('');
@@ -358,6 +361,107 @@ export class BoardStore {
     this.subscribeRealtime();
   }
 
+  // ---- demo mode (self-contained mock; no backend) ------------------------
+  /** Enter demo mode: seed a full mock board and bypass all backend calls. */
+  startDemo(): void {
+    this.demoMode.set(true);
+    this.creds = null;
+    this.identity.set({ name: 'Demo User', ini: 'DU' });
+    this.isAdmin.set(false);
+    this.role.set('pm');
+    this.nav.set('mywork');
+    this.boardProject.set('');
+    // Recompute conv/closed from the track states so the board is consistent.
+    this.rawTasks.set(
+      DEMO_TASKS.map((t) => {
+        const c = deriveConv(t.d, t.f, t.b, null);
+        return { ...t, conv: c, closed: c === 'closed' };
+      }),
+    );
+    this.members.set(DEMO_MEMBERS);
+    this.activity.set(DEMO_ACTIVITY.map((a) => ({ ...a })));
+    this.projects.set([...DEMO_PROJECTS]);
+    this.projectSources.set(DEMO_SOURCES.map((s) => ({ ...s })));
+    this.sprintName.set('Visits Management System — Sprint 1 (demo)');
+    this.override.set(null);
+  }
+
+  /** Demo lens switcher — flip the role with no backend. */
+  demoSetRole(role: Role): void {
+    this.role.set(role);
+    this.nav.set('mywork');
+    this.closeTask();
+  }
+
+  /** Local in-memory task patch (demo) — re-derives conv/closed. */
+  private patchTask(azureId: number | undefined, partial: Partial<Task>): void {
+    if (azureId == null) return;
+    this.rawTasks.update((list) =>
+      list.map((t) => {
+        if (t.azureId !== azureId) return t;
+        const next = { ...t, ...partial };
+        next.conv = deriveConv(next.d, next.f, next.b, null);
+        next.closed = next.conv === 'closed';
+        return next;
+      }),
+    );
+  }
+
+  /** Local start/stop/done (demo) mirroring the proxy's per-track effect. */
+  private demoWork(op: string, azureId: number | undefined): void {
+    const me = this.identity().name;
+    const fe = this.role() === 'frontend';
+    let partial: Partial<Task> = {};
+    if (op === 'startWork') {
+      partial = fe ? { feStartedBy: me, feDev: me, f: 'fe_integration' } : { beStartedBy: me, beDev: me };
+    } else if (op === 'stopWork') {
+      partial = fe ? { feStartedBy: null, f: 'fe_blocked' } : { beStartedBy: null };
+    } else if (op === 'doneWork') {
+      partial = fe ? { f: 'fe_done' } : { b: 'be_done' };
+    }
+    this.patchTask(azureId, partial);
+  }
+
+  /** Prepend a synthetic activity item (demo). */
+  private pushDemoActivity(kind: string, message: string, azureId: number): void {
+    const meta = this.rawTasks().find((x) => x.azureId === azureId);
+    const item: ActivityItem = {
+      id: 'demo-' + azureId + '-' + this.activity().length,
+      kind,
+      actor: this.identity().name,
+      message,
+      created_at: new Date().toISOString(),
+      uc: meta?.uc ?? null,
+      title: meta?.title ?? null,
+    };
+    this.activity.update((list) => [item, ...list].slice(0, 50));
+    if (!this.activityOpen()) this.activityUnread.update((n) => n + 1);
+  }
+
+  /** Local endpoint/screen mapping mutations (demo). */
+  private demoLinkOp(op: string, payload: Record<string, unknown>): void {
+    const now = new Date().toISOString();
+    const rid = () => 'demo-' + Math.random().toString(36).slice(2, 9);
+    const cur = this.taskLinks();
+    const eps = [...cur.endpoints];
+    const scrs = [...cur.screens];
+    if (op === 'setTaskEndpoint') {
+      eps.push({ id: rid(), operation_id: String(payload['operationId']), endpoint: null, is_required: true, is_manual: true, present: false, last_diff: null, updated_at: now });
+    } else if (op === 'addDesignLink') {
+      const url = String(payload['url']);
+      scrs.push({ id: rid(), node_id: url, frame_name: (payload['label'] as string) || 'Figma screen', url, is_required: true, is_manual: true, status: 'ready', fingerprint: null, updated_at: now });
+    } else if (op === 'setTaskScreen') {
+      scrs.push({ id: rid(), node_id: String(payload['nodeId']), frame_name: (payload['frameName'] as string) || null, url: null, is_required: true, is_manual: true, status: 'unknown', fingerprint: null, updated_at: now });
+    } else if (op === 'deleteTaskLink') {
+      const id = String(payload['id']);
+      this.taskLinks.set(payload['kind'] === 'endpoint'
+        ? { endpoints: eps.filter((e) => e.id !== id), screens: scrs }
+        : { endpoints: eps, screens: scrs.filter((s) => s.id !== id) });
+      return;
+    }
+    this.taskLinks.set({ endpoints: eps, screens: scrs });
+  }
+
   // ---- realtime (B3) ------------------------------------------------------
   /**
    * Subscribe to the live 'board' broadcast (migration 0006). The DB broadcasts
@@ -408,6 +512,7 @@ export class BoardStore {
   // ---- activity feed (B4) -------------------------------------------------
   /** Load recent detected events (history) for the active sprint. */
   async loadActivity(): Promise<void> {
+    if (this.demoMode()) return;
     try {
       const res = await this.supabase.invoke<{ activity: ActivityItem[] }>('getActivity');
       this.activity.set(res.activity ?? []);
@@ -427,6 +532,7 @@ export class BoardStore {
 
   /** Fetch the active sprint's tasks from Supabase. */
   async loadBoard(): Promise<void> {
+    if (this.demoMode()) return;
     this.override.set('loading');
     try {
       const res = await this.supabase.invoke<BoardResult>('getBoard');
@@ -438,6 +544,7 @@ export class BoardStore {
 
   /** Load the signed-in team (who picked which lens) for the Insights screen. */
   async loadMembers(): Promise<void> {
+    if (this.demoMode()) return;
     try {
       const res = await this.supabase.invoke<{ members: { display_name: string; role: Role; is_admin: boolean }[] }>(
         'listMembers',
@@ -468,6 +575,21 @@ export class BoardStore {
     pollEnabled?: boolean;
     pollIntervalS?: number;
   }): Promise<void> {
+    if (this.demoMode()) {
+      this.projectSources.update((list) => {
+        const row: ProjectSource = {
+          id: 'demo-' + p.project, org_url: 'dev.azure.com/demo', project: p.project,
+          openapi_spec_url: p.openapiSpecUrl || null, figma_file_key: p.figmaFileKey || null,
+          poll_enabled: p.pollEnabled ?? true, poll_interval_s: p.pollIntervalS ?? 300,
+          updated_at: new Date().toISOString(),
+        };
+        const i = list.findIndex((s) => s.project === p.project);
+        if (i === -1) return [...list, row];
+        const copy = list.slice(); copy[i] = row; return copy;
+      });
+      this.fireToast(`Saved sources for ${p.project}`);
+      return;
+    }
     if (!this.creds) return;
     this.sourcesBusy.set(true);
     try {
@@ -486,16 +608,23 @@ export class BoardStore {
 
   /** Connection test for an OpenAPI spec URL — returns op count or an error. */
   testOpenApi(openapiSpecUrl: string): Promise<{ ok: boolean; operations?: number; error?: string }> {
+    if (this.demoMode()) return Promise.resolve({ ok: true, operations: 12 });
     return this.supabase.invoke('testOpenApiSource', { ...this.creds, openapiSpecUrl });
   }
   /** Connection test for a Figma file key — returns the file name or an error. */
   testFigma(figmaFileKey: string): Promise<{ ok: boolean; name?: string; error?: string }> {
+    if (this.demoMode()) return Promise.resolve({ ok: true, name: 'Demo Figma File' });
     return this.supabase.invoke('testFigmaSource', { ...this.creds, figmaFileKey });
   }
 
   // ---- per-task mapping (drawer: endpoints + screens) ---------------------
   /** Load the endpoints + screens mapped to a task (drawer open). */
   async loadTaskLinks(taskId: number): Promise<void> {
+    if (this.demoMode()) {
+      const seed = DEMO_LINKS[taskId];
+      this.taskLinks.set(seed ? { endpoints: [...seed.endpoints], screens: [...seed.screens] } : { endpoints: [], screens: [] });
+      return;
+    }
     try {
       const res = await this.supabase.invoke<TaskLinks>('listTaskLinks', { taskId });
       this.taskLinks.set({ endpoints: res.endpoints ?? [], screens: res.screens ?? [] });
@@ -508,6 +637,12 @@ export class BoardStore {
   /** Designer sets the design micro-state by hand (Start / Finish / Stop). */
   async setDesignState(azureId: number | undefined, state: string): Promise<void> {
     if (!azureId) return;
+    if (this.demoMode()) {
+      this.patchTask(azureId, { d: state as DesignState });
+      if (state === 'design_ready') this.pushDemoActivity('design_ready', 'Design ready for development', azureId);
+      this.fireToast(state === 'design_ready' ? 'Design marked Ready for development' : 'Design updated');
+      return;
+    }
     try {
       const res = await this.supabase.invoke<BoardResult>('setDesignState', {
         id: azureId,
@@ -540,6 +675,12 @@ export class BoardStore {
   async raiseBlocker(note: string): Promise<void> {
     const id = this.currentTaskId();
     if (!id || !note.trim()) return;
+    if (this.demoMode()) {
+      this.patchTask(id, { f: 'fe_blocked', b: 'be_wip', reason: note.trim() });
+      this.pushDemoActivity('fe_blocker', note.trim(), id);
+      this.fireToast('Blocker sent to backend');
+      return;
+    }
     try {
       const res = await this.supabase.invoke<BoardResult>('raiseBlocker', {
         id,
@@ -575,6 +716,10 @@ export class BoardStore {
   }
 
   private async linkOp(op: string, payload: Record<string, unknown>): Promise<void> {
+    if (this.demoMode()) {
+      this.demoLinkOp(op, payload);
+      return;
+    }
     try {
       const res = await this.supabase.invoke<TaskLinks>(op, payload);
       this.taskLinks.set({ endpoints: res.endpoints ?? [], screens: res.screens ?? [] });
@@ -602,6 +747,10 @@ export class BoardStore {
   async loadIterations(project: string): Promise<void> {
     this.selectedProject.set(project);
     this.selectedIteration.set('');
+    if (this.demoMode()) {
+      this.iterations.set([{ name: 'Sprint 1', path: `${project}\\Sprint 1` }]);
+      return;
+    }
     if (!this.creds || !project) return;
     try {
       const res = await this.supabase.invoke<{ iterations: { name: string; path: string }[] }>(
@@ -615,6 +764,11 @@ export class BoardStore {
   }
 
   async pull(): Promise<void> {
+    if (this.demoMode()) {
+      this.nav.set('board');
+      this.fireToast('Demo board is already loaded');
+      return;
+    }
     const project = this.selectedProject();
     const iterationPath = this.selectedIteration();
     if (!this.creds || !project || !iterationPath) return;
@@ -652,6 +806,11 @@ export class BoardStore {
 
   private async workOp(op: string, azureId: number | undefined, toast: string): Promise<void> {
     if (!azureId) return;
+    if (this.demoMode()) {
+      this.demoWork(op, azureId);
+      this.fireToast(toast);
+      return;
+    }
     try {
       const res = await this.supabase.invoke<BoardResult>(op, {
         id: azureId,
@@ -739,6 +898,11 @@ export class BoardStore {
     const id = this.currentTaskId();
     this.genOpen.set(false);
     if (!id) return;
+    if (this.demoMode()) {
+      this.patchTask(id, { f: 'fe_integration' });
+      this.fireToast('Types added · task moved to Integration');
+      return;
+    }
     try {
       const res = await this.supabase.invoke<BoardResult>('markIntegration', { id });
       this.applyBoard(res);
@@ -769,6 +933,7 @@ export class BoardStore {
       this.channel = null;
     }
     this.creds = null;
+    this.demoMode.set(false);
     this.rawTasks.set([]);
     this.boardProject.set('');
     this.projectSources.set([]);

@@ -75,6 +75,23 @@ export class AuthStore {
     await this.board.startSession(next);
   }
 
+  /**
+   * Enter the self-contained demo (mock board, no Azure/Supabase). The session
+   * is in-memory only (never persisted) so a refresh / sign-out leaves demo.
+   */
+  startDemo(): void {
+    const demo: Session = {
+      orgUrl: 'demo',
+      pat: 'demo',
+      uniqueName: 'demo@contractboard',
+      displayName: 'Demo User',
+      isAdmin: false,
+      role: 'pm',
+    };
+    this.session.set(demo);
+    this.board.startDemo();
+  }
+
   signOut(): void {
     this.session.set(null);
     try {

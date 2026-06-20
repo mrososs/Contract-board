@@ -46,4 +46,10 @@ export class Login {
       this.busy.set(false);
     }
   }
+
+  /** Enter the self-contained mock demo (no token) — for client walkthroughs. */
+  protected viewDemo(): void {
+    this.auth.startDemo();
+    this.router.navigate(['/app']);
+  }
 }

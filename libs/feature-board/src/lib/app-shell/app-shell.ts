@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthStore, BoardStore } from '@contract-board/data-access';
+import { AuthStore, BoardStore, Role } from '@contract-board/data-access';
 import { BrandMark } from '@contract-board/ui';
 import { ActivityFeed } from '../activity-feed/activity-feed';
 import { BoardView } from '../board-view/board-view';
@@ -37,6 +37,14 @@ export class AppShell {
     { key: 'lanes', label: 'Lanes' },
     { key: 'matrix', label: 'Matrix' },
     { key: 'conv', label: 'Convergence' },
+  ];
+
+  /** Demo-mode lens switcher options. */
+  protected readonly demoRoles: { role: Role; label: string }[] = [
+    { role: 'designer', label: 'Designer' },
+    { role: 'frontend', label: 'Frontend' },
+    { role: 'backend', label: 'Backend' },
+    { role: 'pm', label: 'Lead / PM' },
   ];
 
   /** Captured `beforeinstallprompt` event for the Install button. */
