@@ -97,6 +97,7 @@ interface TaskRow {
   design_state: DesignState;
   frontend_state: FrontendState;
   backend_state: BackendState;
+  block_note: string | null;
   fe_started_by: string | null;
   be_started_by: string | null;
 }
@@ -338,6 +339,8 @@ export class BoardStore {
       genCmd: `npx ng-openapi-gen --input ${t.specUrl ?? '<set the OpenAPI spec URL in Settings>'} --output src/app/api`,
       /** Design handoff toggle for the designer drawer controls. */
       designReady: t.d === 'design_ready',
+      /** FE blocker note (if raised) — shown as a banner to all lenses. */
+      blockNote: t.reason ?? null,
     };
   });
 
@@ -533,6 +536,25 @@ export class BoardStore {
     this.setDesignState(this.currentTaskId(), 'design_wip');
   }
 
+  /** FE raises a blocker with a note → backend goes back to Building (rework). */
+  async raiseBlocker(note: string): Promise<void> {
+    const id = this.currentTaskId();
+    if (!id || !note.trim()) return;
+    try {
+      const res = await this.supabase.invoke<BoardResult>('raiseBlocker', {
+        id,
+        note: note.trim(),
+        actor: this.identity().name,
+        orgUrl: this.creds?.orgUrl,
+        pat: this.creds?.pat,
+      });
+      this.applyBoard(res);
+      this.fireToast('Blocker sent to backend');
+    } catch (e) {
+      this.fireToast((e as Error).message);
+    }
+  }
+
   /** Pin a manual endpoint mapping to the open task. */
   async addEndpoint(operationId: string): Promise<void> {
     const id = this.currentTaskId();
@@ -672,6 +694,7 @@ export class BoardStore {
       conv: c,
       endpoint: r.endpoint || '— pending',
       dtos: '',
+      reason: r.block_note ?? undefined,
       closed: c === 'closed',
       feStartedBy: r.fe_started_by,
       beStartedBy: r.be_started_by,

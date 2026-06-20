@@ -38,6 +38,13 @@
         </div>
       }
 
+      @if (sel.blockNote) {
+        <div style="margin-bottom: 16px; padding: 11px 14px; border-radius: 10px; background: rgba(217, 136, 95, 0.1); border: 1px solid rgba(217, 136, 95, 0.28); display: flex; align-items: flex-start; gap: 10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+          <span style="font-size: 12.5px; color: var(--cb-ink)"><strong style="color: var(--cb-alert)">Blocked by Frontend</strong> — {{ sel.blockNote }}<span style="color: var(--cb-mut-3)"> · back to Backend for rework</span></span>
+        </div>
+      }
+
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
         <!-- design -->
         <div class="cb-detail-card">
@@ -174,12 +181,30 @@
 
       <!-- Actions are for the Frontend owner only — admins/PM are read-only here. -->
       @if (!store.isAdmin() && store.role() === 'frontend') {
-        <div style="margin-top: 18px; display: flex; align-items: center; gap: 10px">
+        <div style="margin-top: 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
           <button type="button" class="cb-hover-gold cb-detail-btn" (click)="store.openGen()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>Generate types
           </button>
           <button type="button" class="cb-detail-btn cb-detail-btn--primary" (click)="store.markDone()">Mark FE_Done</button>
+          <button type="button" class="cb-detail-btn" (click)="blockerOpen.set(!blockerOpen())">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>Raise blocker
+          </button>
         </div>
+        @if (blockerOpen()) {
+          <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px">
+            <textarea
+              rows="2"
+              placeholder="Why are you blocked? e.g. createUC3Booking is missing the amount + currency fields"
+              [value]="newBlocker()"
+              (input)="newBlocker.set(val($event))"
+              style="width: 100%; font-size: 12px; padding: 8px 10px; background: var(--cb-bg); border: 1px solid var(--cb-line-2); border-radius: 8px; color: var(--cb-ink); font-family: inherit; resize: vertical"
+            ></textarea>
+            <div style="display: flex; gap: 8px">
+              <button type="button" class="cb-detail-btn cb-detail-btn--primary" style="flex: none; padding: 8px 14px" [disabled]="!newBlocker().trim()" (click)="raiseBlocker()">Send blocker to backend</button>
+              <button type="button" class="cb-detail-btn" style="flex: none; padding: 8px 14px" (click)="blockerOpen.set(false)">Cancel</button>
+            </div>
+          </div>
+        }
       } @else {
         <div style="margin-top: 18px; font-size: 12px; color: var(--cb-mut-3)">
           {{ store.isAdmin() ? 'Read-only — admins track progress, the assigned dev moves the work.' : 'View only for your role.' }}

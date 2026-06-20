@@ -57,6 +57,7 @@ interface ProxyRequest {
     | 'markIntegration'
     | 'setDesignState'
     | 'addDesignLink'
+    | 'raiseBlocker'
     // per-project sources (admin) + N:N task mapping
     | 'listProjectSources'
     | 'setProjectSource'
@@ -413,7 +414,7 @@ async function getBoard() {
   const { data: tasks } = await db
     .from('task')
     .select(
-      'id, sprint_id, uc, title, macro_state, assigned_to, designer, fe_dev, be_dev, endpoint, design_state, frontend_state, backend_state, fe_started_by, fe_started_at, be_started_by, be_started_at',
+      'id, sprint_id, uc, title, macro_state, assigned_to, designer, fe_dev, be_dev, endpoint, design_state, frontend_state, backend_state, block_note, fe_started_by, fe_started_at, be_started_by, be_started_at',
     )
     .in('sprint_id', list.map((s) => s.id))
     .order('id');
@@ -434,9 +435,38 @@ async function markIntegration(p: Record<string, unknown>) {
   if (!id) throw new Error('id is required');
   const { error } = await db
     .from('task')
-    .update({ frontend_state: 'fe_integration', updated_at: new Date().toISOString() })
+    .update({ frontend_state: 'fe_integration', block_note: null, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw new Error(`markIntegration: ${error.message}`);
+  return getBoard();
+}
+
+/**
+ * FE raises a blocker on a Contract-Ready task: record the reason, send the
+ * backend track back to Building (rework), and mark the FE blocked. The note
+ * stays on the task (block_note) and goes to the activity feed. Supabase-only.
+ */
+async function raiseBlocker(p: Record<string, unknown>) {
+  const id = Number(p.id);
+  const note = ((p.note as string) ?? '').trim();
+  if (!id || !note) throw new Error('id and a note are required');
+  const { error } = await db
+    .from('task')
+    .update({
+      frontend_state: 'fe_blocked',
+      backend_state: 'be_wip',
+      block_note: note,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+  if (error) throw new Error(`raiseBlocker: ${error.message}`);
+  await db.from('activity').insert({
+    task_id: id,
+    kind: 'fe_blocker',
+    actor: (p.actor as string) || 'frontend',
+    message: note,
+    payload: {},
+  });
   return getBoard();
 }
 
@@ -565,8 +595,8 @@ async function doneWork(p: Record<string, unknown>) {
   const role = p.role as string;
   const at = new Date().toISOString();
   let patch: Record<string, unknown>;
-  if (role === 'frontend') patch = { frontend_state: 'fe_done', updated_at: at };
-  else if (role === 'backend') patch = { backend_state: 'be_done', updated_at: at };
+  if (role === 'frontend') patch = { frontend_state: 'fe_done', block_note: null, updated_at: at };
+  else if (role === 'backend') patch = { backend_state: 'be_done', block_note: null, updated_at: at };
   else throw new Error('Only Frontend or Backend can finish a story.');
   const { error } = await db.from('task').update(patch).eq('id', id);
   if (error) throw new Error(`doneWork: ${error.message}`);
@@ -830,6 +860,8 @@ Deno.serve(async (req) => {
         return ok(await setDesignState(payload));
       case 'addDesignLink':
         return ok(await addDesignLink(payload));
+      case 'raiseBlocker':
+        return ok(await raiseBlocker(payload));
       case 'listProjectSources':
         return ok(await listProjectSources(payload));
       case 'setProjectSource':

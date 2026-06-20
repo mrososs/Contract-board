@@ -48,6 +48,19 @@ Build the screen against the generated service + the Figma links. When it's ship
 Progress** (not Done) — the work item only closes to **Done/Completed once both the Frontend and
 Backend tracks are done**, since one Azure story spans both.
 
+## If the contract is insufficient — raise a blocker
+
+If you start integrating and the contract is wrong/incomplete (e.g. an endpoint is missing DTO
+fields), open the task → **Raise blocker** → write *why* (e.g. "createUC3Booking is missing
+amount + currency") → **Send blocker to backend**. This:
+- marks your track **Blocked**,
+- sends the **Backend track back to Building** (the story leaves Contract Ready and returns to the
+  backend's queue), and
+- posts your note to the **activity feed** + a **banner on the task**, so the backend sees exactly
+  what to fix.
+
+When the backend reworks the contract and it's Ready again, the blocker note clears and you resume.
+
 ## If something changes after you start
 - **Contract Changed** — a DTO moved after you generated. Re-run the `ng-openapi-gen` command to
   refresh `src/app/api`, then continue.

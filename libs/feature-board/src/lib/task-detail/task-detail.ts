@@ -25,12 +25,22 @@ export class TaskDetail {
   protected readonly newFrame = signal('');
   /** Designer dashboard: paste a Figma screen link. */
   protected readonly newLink = signal('');
+  /** FE "raise blocker" note + open toggle. */
+  protected readonly newBlocker = signal('');
+  protected readonly blockerOpen = signal(false);
 
   /** True for the designer lens (or admin) — may edit design links / handoff. */
   protected readonly canDesign = computed(() => this.store.isAdmin() || this.store.role() === 'designer');
 
   protected val(e: Event): string {
-    return e.target instanceof HTMLInputElement ? e.target.value : '';
+    const t = e.target;
+    return t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement ? t.value : '';
+  }
+
+  protected raiseBlocker(): void {
+    this.store.raiseBlocker(this.newBlocker());
+    this.newBlocker.set('');
+    this.blockerOpen.set(false);
   }
 
   protected addEndpoint(): void {

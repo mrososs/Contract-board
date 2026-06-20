@@ -339,7 +339,7 @@ async function runProject(src: ProjectSource): Promise<Json> {
     if (allPresent && task.backend_state === 'be_wip') {
       await db
         .from('task')
-        .update({ backend_state: 'contract_ready', endpoint: label, updated_at: new Date().toISOString() })
+        .update({ backend_state: 'contract_ready', endpoint: label, block_note: null, updated_at: new Date().toISOString() })
         .eq('id', task.id);
       await db.from('activity').insert({
         task_id: task.id,

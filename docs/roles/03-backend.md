@@ -42,6 +42,14 @@ If you work the board directly: **My work** → **Start** a story (claims it on 
 until the **Frontend track is also done** — the work item only closes to **Done/Completed when both
 FE and BE are done** (one Azure story spans both). **Stop** returns it to the pool.
 
+## If the Frontend raises a blocker
+
+If the Frontend finds your contract insufficient, they **raise a blocker with a note** — the
+story drops out of Contract Ready, your track goes back to **Building**, and it reappears in your
+queue. The reason shows in the **activity feed** ("Frontend blocker · <note>") and as a **banner
+on the task**. Fix the spec (add the missing fields/endpoints); once it's detected again the task
+returns to Contract Ready and the blocker clears.
+
 ## What the Frontend sees
 On the task: the **Contract Ready** pill, the **endpoint(s)**, and (once design is also ready)
 **Ready to integrate**. They then run `ng-openapi-gen` against your spec to get typed services —
