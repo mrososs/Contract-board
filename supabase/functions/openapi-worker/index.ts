@@ -1,17 +1,20 @@
 // OpenAPI sync worker (Supabase Edge Function, scheduled).
 //
-// Polls the backend's OpenAPI spec, stores a snapshot, diffs against the last
-// one, and flips mapped tasks to Contract Ready / records a Contract Changed
-// activity — then writes an `activity` row so the FE owner is notified via
-// Realtime. On an unreachable / malformed spec it keeps the last good snapshot
-// and marks it stale; it never fabricates a state change (TC-18/19).
+// For EVERY enabled project_source it polls that project's OpenAPI spec, stores a
+// per-project snapshot, diffs against the last one, and maintains the project's
+// task_endpoint rows (N:N — a task may require many endpoints). A task flips to
+// Contract Ready only when ALL its required endpoints are present; a DTO change
+// after an endpoint was ready records a Contract Changed activity. On an
+// unreachable / malformed spec it keeps the last good snapshot and marks it stale;
+// it never fabricates a state change (TC-18/19).
 //
-// Tasks are mapped to operations by UC convention (B2): the UC number embedded
-// in the operationId / tag / path is matched against `task.uc`. The resolved
-// mapping is persisted to `task_mapping` so a later manual override can stick.
+// Tasks are mapped to operations by UC convention (B2): the UC number embedded in
+// the operationId / tag / path is matched against `task.uc`. Multiple operations
+// sharing a UC all attach to that task (that's the 1:N). Manual mappings
+// (is_manual=true) are never auto-pruned.
 //
 // Schedule with pg_cron or an external cron hitting this endpoint.
-// Secrets: supabase secrets set OPENAPI_SPEC_URL=...
+// Per-project sources are configured via azure-proxy.setProjectSource.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -27,7 +30,7 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// --- the contract diff (mirror of libs/openapi-sync, ported for Deno) -------
+// --- the contract diff ------------------------------------------------------
 
 interface OperationShape {
   operationId: string;
@@ -154,29 +157,59 @@ function operationUc(op: OperationShape, tags: string[]): string | null {
 
 // --- the run ----------------------------------------------------------------
 
+interface ProjectSource {
+  org_url: string;
+  project: string;
+  openapi_spec_url: string | null;
+  poll_enabled: boolean;
+}
+
 interface TaskRow {
   id: number;
   uc: string | null;
   backend_state: string;
-  endpoint: string | null;
+}
+
+interface EndpointRow {
+  id: string;
+  task_id: number;
+  operation_id: string;
+  is_required: boolean;
+  is_manual: boolean;
+  present: boolean;
 }
 
 async function run(): Promise<Json> {
-  const specUrl = Deno.env.get('OPENAPI_SPEC_URL');
-  if (!specUrl) return { ok: true, skipped: 'OPENAPI_SPEC_URL not set' };
+  const { data: sources } = await db
+    .from('project_source')
+    .select('org_url, project, openapi_spec_url, poll_enabled')
+    .eq('poll_enabled', true);
+  if (!sources?.length) return { ok: true, skipped: 'no enabled project sources' };
 
-  // Active sprint — the worker only touches the board the admin pulled.
+  const projects: Json[] = [];
+  for (const src of sources as ProjectSource[]) {
+    projects.push(await runProject(src));
+  }
+  return { ok: true, projects };
+}
+
+async function runProject(src: ProjectSource): Promise<Json> {
+  if (!src.openapi_spec_url) return { project: src.project, skipped: 'no spec url' };
+
+  // Active sprint for THIS project (per-project active sprint).
   const { data: sprint } = await db
     .from('sprint')
     .select('id')
+    .eq('org_url', src.org_url)
+    .eq('project', src.project)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!sprint) return { ok: true, skipped: 'no active sprint' };
+  if (!sprint) return { project: src.project, skipped: 'no active sprint' };
   const sprintId = sprint.id as string;
 
-  // Previous snapshot (for the diff).
+  // Previous snapshot (the diff base).
   const { data: prevSnap } = await db
     .from('spec_snapshot')
     .select('id, operations')
@@ -186,20 +219,20 @@ async function run(): Promise<Json> {
     .maybeSingle();
   const prevOps = (prevSnap?.operations ?? {}) as Operations;
 
-  // Fetch + parse the spec. On any failure: mark the last snapshot stale and
-  // bail without touching task state (TC-18).
+  // Fetch + parse the spec. On any failure: mark the last snapshot stale and bail
+  // without touching task state (TC-18).
   let spec: Json;
-  const tagsByOp: Record<string, string[]> = {};
   try {
-    const res = await fetch(specUrl, { headers: { Accept: 'application/json' } });
+    const res = await fetch(src.openapi_spec_url, { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error(`spec fetch ${res.status}`);
     spec = (await res.json()) as Json;
   } catch (e) {
     if (prevSnap) await db.from('spec_snapshot').update({ is_stale: true }).eq('id', prevSnap.id);
-    return { ok: false, stale: true, error: (e as Error).message };
+    return { project: src.project, ok: false, stale: true, error: (e as Error).message };
   }
 
-  // Collect tags per operationId for UC matching.
+  // Collect tags per operationId for UC matching (same key as flattenSpec).
+  const tagsByOp: Record<string, string[]> = {};
   for (const [path, pathItemRaw] of Object.entries((spec.paths ?? {}) as Json)) {
     const pathItem = pathItemRaw as Json;
     for (const method of METHODS) {
@@ -215,72 +248,117 @@ async function run(): Promise<Json> {
   // Tasks in this sprint, indexed by UC.
   const { data: taskRows } = await db
     .from('task')
-    .select('id, uc, backend_state, endpoint')
+    .select('id, uc, backend_state')
     .eq('sprint_id', sprintId);
   const tasks = (taskRows ?? []) as TaskRow[];
   const byUc = new Map<string, TaskRow>();
   for (const t of tasks) if (t.uc) byUc.set(t.uc.toUpperCase(), t);
 
-  const events: { kind: string; message: string; flipped: boolean }[] = [];
-
+  // 1) Convention scan — ensure a (non-manual) task_endpoint row exists for every
+  //    operation whose UC matches a task. ignoreDuplicates so we never clobber an
+  //    existing row's present/last_diff/is_manual. This is where 1:N happens:
+  //    several ops sharing UC-12 each become a row for the UC-12 task.
+  const autoRows: { task_id: number; operation_id: string; is_manual: boolean; is_required: boolean }[] = [];
   for (const op of Object.values(nextOps)) {
     const uc = operationUc(op, tagsByOp[op.operationId] ?? []);
     if (!uc) continue;
     const task = byUc.get(uc.toUpperCase());
     if (!task) continue;
+    autoRows.push({ task_id: task.id, operation_id: op.operationId, is_manual: false, is_required: true });
+  }
+  if (autoRows.length) {
+    await db.from('task_endpoint').upsert(autoRows, { onConflict: 'task_id,operation_id', ignoreDuplicates: true });
+  }
 
-    // Persist / refresh the convention mapping (B2). Don't clobber a manual one.
-    await db
-      .from('task_mapping')
-      .upsert(
-        { task_id: task.id, openapi_operation_id: op.operationId, is_manual: false },
-        { onConflict: 'task_id', ignoreDuplicates: false },
-      );
+  // 2) Walk every task_endpoint row (auto + manual) and update present / diffs.
+  const taskIds = tasks.map((t) => t.id);
+  const { data: epRows } = taskIds.length
+    ? await db
+        .from('task_endpoint')
+        .select('id, task_id, operation_id, is_required, is_manual, present')
+        .in('task_id', taskIds)
+    : { data: [] as EndpointRow[] };
+  const endpoints = (epRows ?? []) as EndpointRow[];
 
-    const isNew = !(op.operationId in prevOps);
-    const diff = diffOperation(prevOps[op.operationId], op);
-    const endpoint = `${op.method} ${op.path}`;
+  const events: { kind: string; message: string }[] = [];
+  const byTask = new Map<number, EndpointRow[]>();
+  for (const row of endpoints) {
+    const op = nextOps[row.operation_id];
+    const nowPresent = !!op;
+    const endpoint = op ? `${op.method} ${op.path}` : null;
+    const diff = diffOperation(prevOps[row.operation_id], op);
 
-    if (isNew && task.backend_state === 'be_wip') {
-      // Contract Ready detected for the first time (TC-07).
-      await db
-        .from('task')
-        .update({ backend_state: 'contract_ready', endpoint, updated_at: new Date().toISOString() })
-        .eq('id', task.id);
+    const patch: Record<string, unknown> = { present: nowPresent, updated_at: new Date().toISOString() };
+    if (endpoint) patch.endpoint = endpoint;
+
+    if (nowPresent && !row.present) {
+      // This endpoint just appeared (one of N).
       await db.from('activity').insert({
-        task_id: task.id,
-        kind: 'contract_ready',
+        task_id: row.task_id,
+        kind: 'endpoint_ready',
         actor: 'openapi-worker',
-        message: `Contract ready · ${endpoint}`,
-        payload: { operationId: op.operationId, fields: Object.keys(op.fields) },
+        message: `Endpoint ready · ${endpoint}`,
+        payload: { operationId: row.operation_id, fields: op ? Object.keys(op.fields) : [] },
       });
-      events.push({ kind: 'contract_ready', message: `${uc} ${endpoint}`, flipped: true });
-    } else if (!isNew && hasChanges(diff)) {
+      events.push({ kind: 'endpoint_ready', message: `${endpoint}` });
+    } else if (nowPresent && row.present && row.operation_id in prevOps && hasChanges(diff)) {
       // DTO changed after it was ready (TC-09/10) — notify, don't downgrade.
-      await db
-        .from('task')
-        .update({ endpoint, updated_at: new Date().toISOString() })
-        .eq('id', task.id);
+      patch.last_diff = diff;
       await db.from('activity').insert({
-        task_id: task.id,
+        task_id: row.task_id,
         kind: 'contract_changed',
         actor: 'openapi-worker',
         message: `Contract changed · ${endpoint}`,
         payload: diff,
       });
-      events.push({ kind: 'contract_changed', message: `${uc} ${endpoint}`, flipped: false });
-    } else if (task.endpoint === '— pending' || task.endpoint == null) {
-      // First time we can name the endpoint, even if state is unchanged.
-      await db.from('task').update({ endpoint }).eq('id', task.id);
+      events.push({ kind: 'contract_changed', message: `${endpoint}` });
+    }
+
+    await db.from('task_endpoint').update(patch).eq('id', row.id);
+
+    row.present = nowPresent; // reflect for the aggregate below
+    const arr = byTask.get(row.task_id) ?? [];
+    arr.push(row);
+    byTask.set(row.task_id, arr);
+  }
+
+  // 3) Recompute each task's backend_state from the aggregate.
+  for (const task of tasks) {
+    const rows = byTask.get(task.id) ?? [];
+    const required = rows.filter((r) => r.is_required);
+    if (!required.length) continue;
+    const presentCount = required.filter((r) => r.present).length;
+    const allPresent = presentCount === required.length;
+
+    // A concise endpoint label that also surfaces partial progress on the card.
+    const label =
+      allPresent && required.length === 1
+        ? `${nextOps[required[0].operation_id]?.method} ${nextOps[required[0].operation_id]?.path}`
+        : `${presentCount}/${required.length} endpoints`;
+
+    if (allPresent && task.backend_state === 'be_wip') {
+      await db
+        .from('task')
+        .update({ backend_state: 'contract_ready', endpoint: label, updated_at: new Date().toISOString() })
+        .eq('id', task.id);
+      await db.from('activity').insert({
+        task_id: task.id,
+        kind: 'contract_ready',
+        actor: 'openapi-worker',
+        message: `Contract ready · ${label}`,
+        payload: { endpoints: required.map((r) => r.operation_id) },
+      });
+      events.push({ kind: 'contract_ready', message: `${task.uc ?? task.id} ${label}` });
+    } else if (task.backend_state === 'be_wip') {
+      // Still partial — keep the count visible on the card.
+      await db.from('task').update({ endpoint: label }).eq('id', task.id);
     }
   }
 
   // Store the fresh snapshot last (so a mid-run crash doesn't lose the diff base).
-  await db
-    .from('spec_snapshot')
-    .insert({ sprint_id: sprintId, operations: nextOps, is_stale: false });
+  await db.from('spec_snapshot').insert({ sprint_id: sprintId, operations: nextOps, is_stale: false });
 
-  return { ok: true, operations: Object.keys(nextOps).length, events };
+  return { project: src.project, ok: true, operations: Object.keys(nextOps).length, events };
 }
 
 Deno.serve(async (req) => {
