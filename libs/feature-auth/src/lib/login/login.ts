@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, isDevMode, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthStore } from '@contract-board/data-access';
@@ -27,6 +27,10 @@ export class Login {
       this.router.navigate([this.auth.needsRole() ? '/role' : '/app']);
     }
   }
+
+  /** The mock demo is a dev-server affordance only — hidden in any production
+   *  build (`nx build`), so the GitHub Pages deploy never exposes it. */
+  protected readonly isDev = isDevMode();
 
   protected readonly orgUrl = signal('dev.azure.com/iSaned');
   protected readonly pat = signal('');

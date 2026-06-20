@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, isDevMode, signal } from '@angular/core';
 import { BoardStore } from './board-store';
 import { Role } from './models';
 import { SupabaseService } from './supabase.service';
@@ -51,7 +51,10 @@ export class AuthStore {
     const s = this.session();
     if (!s) return;
     if (s.orgUrl === 'demo') {
-      this.board.startDemo(); // a persisted demo session re-enters demo mode
+      // Demo is dev-only: a carried-over demo session resolves to the real
+      // login in production rather than rehydrating a mock board.
+      if (isDevMode()) this.board.startDemo();
+      else this.signOut();
       return;
     }
     if (!this.needsRole()) void this.board.startSession(s);
@@ -81,10 +84,12 @@ export class AuthStore {
   }
 
   /**
-   * Enter the self-contained demo (mock board, no Azure/Supabase). The session
-   * is in-memory only (never persisted) so a refresh / sign-out leaves demo.
+   * Enter the self-contained demo (mock board, no Azure/Supabase). Dev-server
+   * only — a no-op in production builds so the deploy never exposes it. The
+   * session is persisted (sentinel orgUrl='demo') so a refresh stays in demo.
    */
   startDemo(): void {
+    if (!isDevMode()) return;
     const demo: Session = {
       orgUrl: 'demo',
       pat: 'demo',
