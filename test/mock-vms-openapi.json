@@ -1,0 +1,106 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Mock VMS API (ContractBoard test)",
+    "version": "1.0.0",
+    "description": "A fake backend spec for testing ContractBoard's Contract-Ready detection. Every operation carries its UC number in the operationId, a tag, AND the path, so the worker links it to a task whose Azure title contains the same UC-n. UC-3 has TWO endpoints to exercise the N:N rule (the task is Contract Ready only when BOTH are present)."
+  },
+  "paths": {
+    "/uc-1/auth/login": {
+      "post": {
+        "operationId": "createUC1Login",
+        "tags": ["UC-1"],
+        "summary": "Authenticate a user (UC-1).",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } } } }
+        }
+      }
+    },
+    "/uc-2/profile": {
+      "get": {
+        "operationId": "getUC2Profile",
+        "tags": ["UC-2"],
+        "summary": "Get the signed-in user's profile (UC-2).",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Profile" } } } }
+        }
+      }
+    },
+    "/uc-3/bookings": {
+      "post": {
+        "operationId": "createUC3Booking",
+        "tags": ["UC-3"],
+        "summary": "Create a booking (UC-3).",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateBookingRequest" } } }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Booking" } } } }
+        }
+      }
+    },
+    "/uc-3/bookings/refund": {
+      "post": {
+        "operationId": "refundUC3Booking",
+        "tags": ["UC-3"],
+        "summary": "Refund a booking (UC-3) — second endpoint of the same UC (N:N).",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefundResult" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "password": { "type": "string" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "expiresIn": { "type": "integer" }
+        }
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      },
+      "CreateBookingRequest": {
+        "type": "object",
+        "properties": {
+          "siteId": { "type": "string" },
+          "plan": { "type": "string" }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "amount": { "type": "number" },
+          "currency": { "type": "string" },
+          "refundable": { "type": "boolean" }
+        }
+      },
+      "RefundResult": {
+        "type": "object",
+        "properties": {
+          "refundId": { "type": "string" },
+          "amount": { "type": "number" },
+          "status": { "type": "string" }
+        }
+      }
+    }
+  }
+}
