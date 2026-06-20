@@ -53,7 +53,16 @@ interface ProxyRequest {
     | 'stopWork'
     | 'doneWork'
     | 'setState'
-    | 'addCompletedWork';
+    | 'addCompletedWork'
+    // per-project sources (admin) + N:N task mapping
+    | 'listProjectSources'
+    | 'setProjectSource'
+    | 'testOpenApiSource'
+    | 'testFigmaSource'
+    | 'listTaskLinks'
+    | 'setTaskEndpoint'
+    | 'setTaskScreen'
+    | 'deleteTaskLink';
   payload: Record<string, unknown>;
 }
 
@@ -273,13 +282,20 @@ async function pullSprint(p: Record<string, unknown>) {
     items = batch.value ?? [];
   }
 
-  // 3) Upsert the active sprint (deactivate the rest), then the tasks.
+  // 3) Upsert the active sprint, then the tasks. Deactivation is scoped to THIS
+  //    project so each project keeps its own active sprint (multi-project board).
   const { org } = parseOrg(p.orgUrl as string);
-  await db.from('sprint').update({ is_active: false }).neq('iteration_path', iterationPath);
+  const orgUrl = `dev.azure.com/${org}`;
+  await db
+    .from('sprint')
+    .update({ is_active: false })
+    .eq('org_url', orgUrl)
+    .eq('project', project)
+    .neq('iteration_path', iterationPath);
   const { data: sprintRow, error: sErr } = await db
     .from('sprint')
     .upsert(
-      { org_url: `dev.azure.com/${org}`, project, iteration_path: iterationPath, is_active: true },
+      { org_url: orgUrl, project, iteration_path: iterationPath, is_active: true },
       { onConflict: 'org_url,project,iteration_path' },
     )
     .select('id')
@@ -320,7 +336,7 @@ async function pullSprint(p: Record<string, unknown>) {
     if (tErr) throw new Error(`task upsert: ${tErr.message}`);
   }
 
-  return board(sprintId);
+  return getBoard();
 }
 
 /**
@@ -330,19 +346,15 @@ async function pullSprint(p: Record<string, unknown>) {
  * the Realtime 'board' broadcast (see migration 0006).
  */
 async function getActivity() {
-  const { data: sprintRow } = await db
-    .from('sprint')
-    .select('id')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!sprintRow) return { activity: [] };
+  // All active sprints (one per project) — activity spans every live project.
+  const { data: sprints } = await db.from('sprint').select('id').eq('is_active', true);
+  const sprintIds = (sprints ?? []).map((s) => s.id);
+  if (!sprintIds.length) return { activity: [] };
 
   const { data: tasks } = await db
     .from('task')
     .select('id, uc, title')
-    .eq('sprint_id', sprintRow.id);
+    .in('sprint_id', sprintIds);
   const ids = (tasks ?? []).map((t) => t.id);
   if (!ids.length) return { activity: [] };
   const meta = new Map((tasks ?? []).map((t) => [t.id, { uc: t.uc, title: t.title }]));
@@ -373,39 +385,35 @@ async function listMembers() {
   return { members: data ?? [] };
 }
 
+/**
+ * The board across ALL active sprints (one per project). Returns every live
+ * project's sprint plus the union of their tasks, each task tagged with its
+ * `project` so the UI can filter/switch. `sprint` is kept as the most-recent
+ * active sprint for backwards compatibility with the single-project client.
+ */
 async function getBoard() {
-  const { data: sprintRow } = await db
+  const { data: sprints } = await db
     .from('sprint')
     .select('id, project, iteration_path')
     .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!sprintRow) return { sprint: null, tasks: [] };
-  return board(sprintRow.id, sprintRow);
-}
+    .order('created_at', { ascending: false });
+  const list = sprints ?? [];
+  if (!list.length) return { sprint: null, sprints: [], tasks: [] };
 
-async function board(
-  sprintId: string,
-  sprintRow?: { project: string; iteration_path: string },
-) {
+  const byId = new Map(list.map((s) => [s.id, s]));
   const { data: tasks } = await db
     .from('task')
     .select(
-      'id, uc, title, macro_state, assigned_to, designer, fe_dev, be_dev, endpoint, design_state, frontend_state, backend_state, fe_started_by, fe_started_at, be_started_by, be_started_at',
+      'id, sprint_id, uc, title, macro_state, assigned_to, designer, fe_dev, be_dev, endpoint, design_state, frontend_state, backend_state, fe_started_by, fe_started_at, be_started_by, be_started_at',
     )
-    .eq('sprint_id', sprintId)
+    .in('sprint_id', list.map((s) => s.id))
     .order('id');
-  let sprint = sprintRow ?? null;
-  if (!sprint) {
-    const { data } = await db
-      .from('sprint')
-      .select('project, iteration_path')
-      .eq('id', sprintId)
-      .maybeSingle();
-    sprint = data ?? null;
-  }
-  return { sprint, tasks: tasks ?? [] };
+
+  const withProject = (tasks ?? []).map((t) => ({
+    ...t,
+    project: byId.get(t.sprint_id)?.project ?? null,
+  }));
+  return { sprint: list[0], sprints: list, tasks: withProject };
 }
 
 /**
@@ -527,6 +535,160 @@ async function addCompletedWork(p: Record<string, unknown>) {
   return { id, completedWork: next };
 }
 
+// --- per-project sources + N:N task mapping --------------------------------
+
+/** Resolve the caller from their PAT and assert they are an admin. */
+async function requireAdmin(p: Record<string, unknown>): Promise<void> {
+  const orgUrl = p.orgUrl as string;
+  const pat = p.pat as string;
+  if (!orgUrl || !pat) throw new Error('orgUrl and pat are required');
+  const { base } = parseOrg(orgUrl);
+  const data = (await azure(
+    `${base}/_apis/connectionData?api-version=${AZURE_API}-preview`,
+    pat,
+  )) as { authenticatedUser?: { properties?: { Account?: { $value?: string } }; providerDisplayName?: string } };
+  const au = data.authenticatedUser ?? {};
+  const uniqueName = au.properties?.Account?.$value ?? au.providerDisplayName ?? '';
+  if (!isAdmin(uniqueName)) throw new Error('Admin only');
+}
+
+/** List configured per-project sources (admin). Secret VALUES are never returned. */
+async function listProjectSources(p: Record<string, unknown>) {
+  await requireAdmin(p);
+  const { data } = await db
+    .from('project_source')
+    .select('id, org_url, project, openapi_spec_url, figma_file_key, poll_enabled, poll_interval_s, updated_at')
+    .order('project');
+  return { sources: data ?? [] };
+}
+
+/** Upsert a project's spec URL / Figma file key + poll settings (admin). */
+async function setProjectSource(p: Record<string, unknown>) {
+  await requireAdmin(p);
+  const { org } = parseOrg(p.orgUrl as string);
+  const project = p.project as string;
+  if (!project) throw new Error('project is required');
+  const row = {
+    org_url: `dev.azure.com/${org}`,
+    project,
+    openapi_spec_url: (p.openapiSpecUrl as string) || null,
+    figma_file_key: (p.figmaFileKey as string) || null,
+    poll_enabled: p.pollEnabled === undefined ? true : !!p.pollEnabled,
+    poll_interval_s: Number(p.pollIntervalS ?? 300),
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await db.from('project_source').upsert(row, { onConflict: 'org_url,project' });
+  if (error) throw new Error(`setProjectSource: ${error.message}`);
+  return listProjectSources(p);
+}
+
+/** Connection test: fetch the spec once and count operations (admin). */
+async function testOpenApiSource(p: Record<string, unknown>) {
+  await requireAdmin(p);
+  const url = p.openapiSpecUrl as string;
+  if (!url) throw new Error('openapiSpecUrl is required');
+  try {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return { ok: false, error: `spec fetch ${res.status}` };
+    const spec = (await res.json()) as { paths?: Record<string, Record<string, unknown>> };
+    let operations = 0;
+    for (const item of Object.values(spec.paths ?? {})) {
+      for (const m of ['get', 'put', 'post', 'delete', 'patch']) if (item?.[m]) operations++;
+    }
+    return { ok: true, operations };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Connection test: fetch the Figma file once using the shared FIGMA_TOKEN (admin). */
+async function testFigmaSource(p: Record<string, unknown>) {
+  await requireAdmin(p);
+  const fileKey = p.figmaFileKey as string;
+  if (!fileKey) throw new Error('figmaFileKey is required');
+  const token = Deno.env.get('FIGMA_TOKEN');
+  if (!token) return { ok: false, error: 'FIGMA_TOKEN secret is not set' };
+  try {
+    const res = await fetch(`https://api.figma.com/v1/files/${fileKey}?depth=1`, {
+      headers: { 'X-Figma-Token': token },
+    });
+    if (!res.ok) return { ok: false, error: `figma ${res.status}` };
+    const file = (await res.json()) as { name?: string; lastModified?: string };
+    return { ok: true, name: file.name ?? '(unnamed)', lastModified: file.lastModified ?? null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Endpoints + screens mapped to a task (for the drawer editor). */
+async function listTaskLinks(p: Record<string, unknown>) {
+  const taskId = Number(p.taskId);
+  if (!taskId) throw new Error('taskId is required');
+  const [eps, scrs] = await Promise.all([
+    db.from('task_endpoint')
+      .select('id, operation_id, endpoint, is_required, is_manual, present, last_diff, updated_at')
+      .eq('task_id', taskId)
+      .order('operation_id'),
+    db.from('task_screen')
+      .select('id, node_id, frame_name, is_required, is_manual, status, fingerprint, updated_at')
+      .eq('task_id', taskId)
+      .order('frame_name'),
+  ]);
+  return { endpoints: eps.data ?? [], screens: scrs.data ?? [] };
+}
+
+/** Add / edit a manual endpoint mapping (is_manual=true so workers won't prune it). */
+async function setTaskEndpoint(p: Record<string, unknown>) {
+  const taskId = Number(p.taskId);
+  const operationId = p.operationId as string;
+  if (!taskId || !operationId) throw new Error('taskId and operationId are required');
+  const { error } = await db.from('task_endpoint').upsert(
+    {
+      task_id: taskId,
+      operation_id: operationId,
+      is_required: p.isRequired === undefined ? true : !!p.isRequired,
+      is_manual: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'task_id,operation_id' },
+  );
+  if (error) throw new Error(`setTaskEndpoint: ${error.message}`);
+  return listTaskLinks(p);
+}
+
+/** Add / edit a manual screen mapping. */
+async function setTaskScreen(p: Record<string, unknown>) {
+  const taskId = Number(p.taskId);
+  const nodeId = p.nodeId as string;
+  if (!taskId || !nodeId) throw new Error('taskId and nodeId are required');
+  const { error } = await db.from('task_screen').upsert(
+    {
+      task_id: taskId,
+      node_id: nodeId,
+      frame_name: (p.frameName as string) || null,
+      is_required: p.isRequired === undefined ? true : !!p.isRequired,
+      is_manual: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'task_id,node_id' },
+  );
+  if (error) throw new Error(`setTaskScreen: ${error.message}`);
+  return listTaskLinks(p);
+}
+
+/** Remove a mapping row by kind ('endpoint' | 'screen') + id. */
+async function deleteTaskLink(p: Record<string, unknown>) {
+  const kind = p.kind as string;
+  const id = p.id as string;
+  if (!id || (kind !== 'endpoint' && kind !== 'screen')) {
+    throw new Error("kind ('endpoint' | 'screen') and id are required");
+  }
+  const table = kind === 'endpoint' ? 'task_endpoint' : 'task_screen';
+  const { error } = await db.from(table).delete().eq('id', id);
+  if (error) throw new Error(`deleteTaskLink: ${error.message}`);
+  return listTaskLinks(p);
+}
+
 // --- dispatch --------------------------------------------------------------
 
 Deno.serve(async (req) => {
@@ -569,6 +731,22 @@ Deno.serve(async (req) => {
         return ok(await setState(payload));
       case 'addCompletedWork':
         return ok(await addCompletedWork(payload));
+      case 'listProjectSources':
+        return ok(await listProjectSources(payload));
+      case 'setProjectSource':
+        return ok(await setProjectSource(payload));
+      case 'testOpenApiSource':
+        return ok(await testOpenApiSource(payload));
+      case 'testFigmaSource':
+        return ok(await testFigmaSource(payload));
+      case 'listTaskLinks':
+        return ok(await listTaskLinks(payload));
+      case 'setTaskEndpoint':
+        return ok(await setTaskEndpoint(payload));
+      case 'setTaskScreen':
+        return ok(await setTaskScreen(payload));
+      case 'deleteTaskLink':
+        return ok(await deleteTaskLink(payload));
       default:
         return fail(`Unknown op: ${op}`);
     }
