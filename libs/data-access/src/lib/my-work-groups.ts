@@ -136,12 +136,28 @@ export function buildMyGroups(role: Role, tasks: DecoratedTask[], deps: MyWorkDe
       });
     const available = (t: DecoratedTask) =>
       card(t, {
-        sub: 'Tap Start to claim this story',
+        // FE starting a design-ready story scaffolds the UI (or integrates if the
+        // contract is already up); BE just claims it.
+        sub:
+          role === 'frontend'
+            ? t.b === 'contract_ready' || t.b === 'be_done'
+              ? 'Design + contract ready — Start to integrate'
+              : 'Design ready — Start to scaffold the UI'
+            : 'Tap Start to claim this story',
         pill: trackPill(t),
         who: role === 'frontend' ? t.feDev : t.beDev,
         color: trackColor,
         ctaLabel: 'Start',
         cta: deps.startCta(t.azureId),
+      });
+    const waitingDesign = (t: DecoratedTask) =>
+      card(t, {
+        sub: 'Design not ready yet',
+        pill: trackPill(t),
+        who: t.feDev,
+        color: M,
+        ctaLabel: 'Open',
+        cta: deps.openCta(t.uc),
       });
     const done = (t: DecoratedTask) =>
       card(t, {
@@ -161,9 +177,22 @@ export function buildMyGroups(role: Role, tasks: DecoratedTask[], deps: MyWorkDe
         ctaLabel: 'Open',
         cta: deps.openCta(t.uc),
       });
+    const unclaimed = (t: DecoratedTask) => !startedBy(t) && !isDone(t) && !t.closed;
+    if (role === 'frontend') {
+      // The FE track depends on a ready design: only design-ready stories can be
+      // started (scaffold or integrate). The rest wait on the designer first.
+      const designReady = (t: DecoratedTask) => t.d === 'design_ready';
+      return [
+        grp('Working on', trackColor, tasks.filter((t) => startedBy(t) === me && !isDone(t)).map(working)),
+        grp('Ready to build', T, tasks.filter((t) => unclaimed(t) && designReady(t)).map(available)),
+        grp('Waiting on design', M, tasks.filter((t) => unclaimed(t) && !designReady(t)).map(waitingDesign)),
+        grp('Done', S, tasks.filter((t) => startedBy(t) === me && isDone(t)).map(done)),
+        grp('Taken by the team', M, tasks.filter((t) => startedBy(t) && startedBy(t) !== me && !isDone(t)).map(taken)),
+      ].filter((g) => g.count);
+    }
     return [
       grp('Working on', trackColor, tasks.filter((t) => startedBy(t) === me && !isDone(t)).map(working)),
-      grp('Available to start', T, tasks.filter((t) => !startedBy(t) && !isDone(t) && !t.closed).map(available)),
+      grp('Available to start', T, tasks.filter(unclaimed).map(available)),
       grp('Done', S, tasks.filter((t) => startedBy(t) === me && isDone(t)).map(done)),
       grp('Taken by the team', M, tasks.filter((t) => startedBy(t) && startedBy(t) !== me && !isDone(t)).map(taken)),
     ].filter((g) => g.count);

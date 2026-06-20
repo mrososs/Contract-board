@@ -75,7 +75,7 @@ Two structural shifts:
 ## 4. Data model changes
 
 ### 4.1 New: `project_source` (per-project config)
-
+''
 ```sql
 create table project_source (
   id              uuid primary key default gen_random_uuid(),

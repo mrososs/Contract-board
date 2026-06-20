@@ -63,6 +63,16 @@
         </button>
       </form>
 
+      @if (isDev) {
+        <button
+          type="button"
+          (click)="viewDemo()"
+          style="width: 100%; margin-top: 12px; padding: 10px; font-size: 13px; color: var(--cb-mut); background: transparent; border: 1px dashed var(--cb-line-3); border-radius: 10px; cursor: pointer"
+        >
+          View demo (mock data, no token) →
+        </button>
+      }
+
       <p class="cb-login__foot">
         Your token is kept on this device so the app reopens signed in — sign out any time to remove it.
       </p>

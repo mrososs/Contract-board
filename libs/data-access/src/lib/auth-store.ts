@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, isDevMode, signal } from '@angular/core';
 import { BoardStore } from './board-store';
 import { Role } from './models';
 import { SupabaseService } from './supabase.service';
@@ -49,7 +49,15 @@ export class AuthStore {
   constructor() {
     // Rehydrate the board from a restored session (skip if a role is still owed).
     const s = this.session();
-    if (s && !this.needsRole()) void this.board.startSession(s);
+    if (!s) return;
+    if (s.orgUrl === 'demo') {
+      // Demo is dev-only: a carried-over demo session resolves to the real
+      // login in production rather than rehydrating a mock board.
+      if (isDevMode()) this.board.startDemo();
+      else this.signOut();
+      return;
+    }
+    if (!this.needsRole()) void this.board.startSession(s);
   }
 
   /** Paste org URL + PAT → resolve identity → seed the board. Throws on a bad token. */
@@ -73,6 +81,27 @@ export class AuthStore {
     const next = { ...s, role };
     this.persist(next);
     await this.board.startSession(next);
+  }
+
+  /**
+   * Enter the self-contained demo (mock board, no Azure/Supabase). Dev-server
+   * only — a no-op in production builds so the deploy never exposes it. The
+   * session is persisted (sentinel orgUrl='demo') so a refresh stays in demo.
+   */
+  startDemo(): void {
+    if (!isDevMode()) return;
+    const demo: Session = {
+      orgUrl: 'demo',
+      pat: 'demo',
+      uniqueName: 'demo@contractboard',
+      displayName: 'Demo User',
+      isAdmin: false,
+      role: 'pm',
+    };
+    // Persisted (sentinel orgUrl='demo') so a page refresh stays in demo;
+    // signOut clears it and returns to the real login.
+    this.persist(demo);
+    this.board.startDemo();
   }
 
   signOut(): void {

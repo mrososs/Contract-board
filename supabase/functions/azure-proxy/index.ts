@@ -531,7 +531,12 @@ async function startWork(p: Record<string, unknown>) {
   const at = new Date().toISOString();
   let patch: Record<string, unknown>;
   if (role === 'frontend') {
-    patch = { fe_started_by: actor, fe_started_at: at, fe_dev: actor, frontend_state: 'fe_integration', updated_at: at };
+    // FE can start as soon as the design is ready: integrate when the contract
+    // is already published, otherwise scaffold the UI from the design alone.
+    const { data: cur } = await db.from('task').select('backend_state').eq('id', id).maybeSingle();
+    const contractReady = cur?.backend_state === 'contract_ready' || cur?.backend_state === 'be_done';
+    const feState = contractReady ? 'fe_integration' : 'fe_scaffold';
+    patch = { fe_started_by: actor, fe_started_at: at, fe_dev: actor, frontend_state: feState, updated_at: at };
   } else if (role === 'backend') {
     patch = { be_started_by: actor, be_started_at: at, be_dev: actor, updated_at: at };
   } else {

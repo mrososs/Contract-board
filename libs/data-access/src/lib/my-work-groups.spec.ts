@@ -46,9 +46,11 @@ const byLabel = (groups: ReturnType<typeof buildMyGroups>, label: string) =>
 describe('buildMyGroups — frontend lens', () => {
   const tasks = [
     task({ uc: 'UC-1', feStartedBy: 'Me', f: 'fe_integration' }), // working on
-    task({ uc: 'UC-2', feStartedBy: null, f: 'fe_blocked' }), // available
+    task({ uc: 'UC-2', feStartedBy: null, f: 'fe_blocked', d: 'design_ready', b: 'be_wip' }), // ready to build (scaffold)
     task({ uc: 'UC-3', feStartedBy: 'Me', f: 'fe_done' }), // done by me
     task({ uc: 'UC-4', feStartedBy: 'Ada', f: 'fe_integration' }), // taken by team
+    task({ uc: 'UC-5', feStartedBy: null, f: 'fe_blocked', d: 'design_wip' }), // waiting on design
+    task({ uc: 'UC-6', feStartedBy: null, f: 'fe_blocked', d: 'design_ready', b: 'contract_ready' }), // ready to build (integrate)
   ];
   const groups = buildMyGroups('frontend', tasks, deps);
 
@@ -59,10 +61,22 @@ describe('buildMyGroups — frontend lens', () => {
     expect(g?.items[0].cta2Label).toBe('Stop');
   });
 
-  it('offers unclaimed, unfinished stories under "Available to start"', () => {
-    const g = byLabel(groups, 'Available to start');
-    expect(g?.items.map((i) => i.uc)).toEqual(['UC-2']);
-    expect(g?.items[0].ctaLabel).toBe('Start');
+  it('offers design-ready unclaimed stories under "Ready to build" with a Start action', () => {
+    const g = byLabel(groups, 'Ready to build');
+    expect(g?.items.map((i) => i.uc)).toEqual(['UC-2', 'UC-6']);
+    expect(g?.items.every((i) => i.ctaLabel === 'Start')).toBe(true);
+  });
+
+  it('labels the scaffold vs integrate start path by contract readiness', () => {
+    const g = byLabel(groups, 'Ready to build');
+    expect(g?.items.find((i) => i.uc === 'UC-2')?.sub).toContain('scaffold');
+    expect(g?.items.find((i) => i.uc === 'UC-6')?.sub).toContain('integrate');
+  });
+
+  it('holds not-yet-designed unclaimed stories under "Waiting on design" (no Start)', () => {
+    const g = byLabel(groups, 'Waiting on design');
+    expect(g?.items.map((i) => i.uc)).toEqual(['UC-5']);
+    expect(g?.items[0].ctaLabel).toBe('Open');
   });
 
   it('separates my finished stories from ones taken by teammates', () => {
@@ -71,8 +85,8 @@ describe('buildMyGroups — frontend lens', () => {
   });
 
   it('omits empty groups entirely', () => {
-    const onlyAvailable = buildMyGroups('frontend', [task({ feStartedBy: null })], deps);
-    expect(onlyAvailable.map((g) => g.label)).toEqual(['Available to start']);
+    const onlyReady = buildMyGroups('frontend', [task({ feStartedBy: null, d: 'design_ready' })], deps);
+    expect(onlyReady.map((g) => g.label)).toEqual(['Ready to build']);
   });
 });
 

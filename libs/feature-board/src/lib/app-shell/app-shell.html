@@ -122,3 +122,22 @@
 <cb-generate-types />
 <cb-activity-feed />
 <cb-toast />
+
+<!-- ================= DEMO LENS SWITCHER ================= -->
+@if (store.demoMode()) {
+  <div style="position: fixed; left: 16px; bottom: 16px; z-index: 200; display: flex; align-items: center; gap: 6px; padding: 7px 9px; background: var(--cb-card); border: 1px solid var(--cb-frontend); border-radius: 12px; box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4)">
+    <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--cb-frontend); padding: 0 4px">DEMO · view as</span>
+    @for (r of demoRoles; track r.role) {
+      <button
+        type="button"
+        style="font-size: 11.5px; padding: 5px 10px; border-radius: 8px; cursor: pointer; border: 1px solid var(--cb-line-2)"
+        [style.background]="store.role() === r.role ? 'var(--cb-frontend)' : 'transparent'"
+        [style.color]="store.role() === r.role ? '#2A2310' : 'var(--cb-mut)'"
+        (click)="store.demoSetRole(r.role)"
+      >
+        {{ r.label }}
+      </button>
+    }
+    <button type="button" style="font-size: 11.5px; padding: 5px 10px; border-radius: 8px; cursor: pointer; border: 1px solid var(--cb-line-2); background: transparent; color: var(--cb-mut-2)" (click)="store.startDemo()">Reset</button>
+  </div>
+}
