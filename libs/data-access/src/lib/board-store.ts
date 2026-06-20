@@ -9,8 +9,10 @@ import {
   FrontendState,
   Nav,
   Pill,
+  ProjectSource,
   Role,
   Task,
+  TaskLinks,
 } from './models';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { buildMyGroups, MyWorkGroup } from './my-work-groups';
@@ -81,6 +83,8 @@ export interface BoardSession {
 /** A task row as returned by the `azure-proxy` getBoard / pullSprint ops. */
 interface TaskRow {
   id: number;
+  sprint_id?: string;
+  project?: string | null;
   uc: string | null;
   title: string;
   macro_state: string | null;
@@ -97,6 +101,8 @@ interface TaskRow {
 }
 interface BoardResult {
   sprint: { project: string; iteration_path: string } | null;
+  /** All active sprints (one per project) for the multi-project board. */
+  sprints?: { project: string; iteration_path: string }[];
   tasks: TaskRow[];
 }
 
@@ -120,6 +126,8 @@ export class BoardStore {
   readonly toast = signal('');
   readonly isAdmin = signal(false);
   readonly rawTasks = signal<Task[]>([]);
+  /** Multi-project board filter — '' shows every active project, else one. */
+  readonly boardProject = signal<string>('');
   /** The team that has signed in (display_name + chosen role) — drives Insights. */
   readonly members = signal<{ display_name: string; role: Role; is_admin: boolean }[]>([]);
 
@@ -141,22 +149,39 @@ export class BoardStore {
   readonly selectedIteration = signal<string>('');
   readonly busy = signal(false);
 
+  // ---- per-project sources (admin Settings) -------------------------------
+  readonly projectSources = signal<ProjectSource[]>([]);
+  readonly sourcesBusy = signal(false);
+
+  // ---- per-task mapping (drawer: endpoints + screens) ---------------------
+  readonly taskLinks = signal<TaskLinks>({ endpoints: [], screens: [] });
+
   /** Azure credentials for this session — kept in memory only, never persisted. */
   private creds: { orgUrl: string; pat: string } | null = null;
   private toastTimer?: ReturnType<typeof setTimeout>;
 
-  // ---- derived: tasks -----------------------------------------------------
-  readonly tasks = computed<DecoratedTask[]>(() =>
-    this.rawTasks().map((t) => ({
-      ...t,
-      dp: pill(t.d),
-      fp: pill(t.f),
-      bp: pill(t.b),
-      cv: conv(t.conv),
-      dtoList: t.dtos ? t.dtos.split(' · ') : [],
-      open: () => this.openTask(t.uc),
-    })),
-  );
+  /** Distinct projects present on the board (drives the project switcher). */
+  readonly boardProjects = computed<string[]>(() => {
+    const set = new Set<string>();
+    for (const t of this.rawTasks()) if (t.project) set.add(t.project);
+    return [...set].sort();
+  });
+
+  // ---- derived: tasks (scoped to the selected project, if any) ------------
+  readonly tasks = computed<DecoratedTask[]>(() => {
+    const proj = this.boardProject();
+    return this.rawTasks()
+      .filter((t) => !proj || t.project === proj)
+      .map((t) => ({
+        ...t,
+        dp: pill(t.d),
+        fp: pill(t.f),
+        bp: pill(t.b),
+        cv: conv(t.conv),
+        dtoList: t.dtos ? t.dtos.split(' · ') : [],
+        open: () => this.openTask(t.uc),
+      }));
+  });
 
   readonly roleInfo = computed(() => {
     const info = roleInfo(this.role());
@@ -411,6 +436,95 @@ export class BoardStore {
     }
   }
 
+  // ---- per-project sources (admin Settings) -------------------------------
+  /** Load the configured per-project sources (admin only). */
+  async loadProjectSources(): Promise<void> {
+    if (!this.creds) return;
+    try {
+      const res = await this.supabase.invoke<{ sources: ProjectSource[] }>('listProjectSources', this.creds);
+      this.projectSources.set(res.sources ?? []);
+    } catch (e) {
+      this.fireToast((e as Error).message);
+    }
+  }
+
+  /** Upsert a project's spec URL / Figma file key + poll settings (admin only). */
+  async saveProjectSource(p: {
+    project: string;
+    openapiSpecUrl: string;
+    figmaFileKey: string;
+    pollEnabled?: boolean;
+    pollIntervalS?: number;
+  }): Promise<void> {
+    if (!this.creds) return;
+    this.sourcesBusy.set(true);
+    try {
+      const res = await this.supabase.invoke<{ sources: ProjectSource[] }>('setProjectSource', {
+        ...this.creds,
+        ...p,
+      });
+      this.projectSources.set(res.sources ?? []);
+      this.fireToast(`Saved sources for ${p.project}`);
+    } catch (e) {
+      this.fireToast((e as Error).message);
+    } finally {
+      this.sourcesBusy.set(false);
+    }
+  }
+
+  /** Connection test for an OpenAPI spec URL — returns op count or an error. */
+  testOpenApi(openapiSpecUrl: string): Promise<{ ok: boolean; operations?: number; error?: string }> {
+    return this.supabase.invoke('testOpenApiSource', { ...this.creds, openapiSpecUrl });
+  }
+  /** Connection test for a Figma file key — returns the file name or an error. */
+  testFigma(figmaFileKey: string): Promise<{ ok: boolean; name?: string; error?: string }> {
+    return this.supabase.invoke('testFigmaSource', { ...this.creds, figmaFileKey });
+  }
+
+  // ---- per-task mapping (drawer: endpoints + screens) ---------------------
+  /** Load the endpoints + screens mapped to a task (drawer open). */
+  async loadTaskLinks(taskId: number): Promise<void> {
+    try {
+      const res = await this.supabase.invoke<TaskLinks>('listTaskLinks', { taskId });
+      this.taskLinks.set({ endpoints: res.endpoints ?? [], screens: res.screens ?? [] });
+    } catch {
+      this.taskLinks.set({ endpoints: [], screens: [] });
+    }
+  }
+
+  /** Pin a manual endpoint mapping to the open task. */
+  async addEndpoint(operationId: string): Promise<void> {
+    const id = this.currentTaskId();
+    if (!id || !operationId.trim()) return;
+    await this.linkOp('setTaskEndpoint', { taskId: id, operationId: operationId.trim() });
+  }
+  /** Pin a manual screen mapping to the open task. */
+  async addScreen(nodeId: string, frameName?: string): Promise<void> {
+    const id = this.currentTaskId();
+    if (!id || !nodeId.trim()) return;
+    await this.linkOp('setTaskScreen', { taskId: id, nodeId: nodeId.trim(), frameName });
+  }
+  /** Remove a mapping row from the open task. */
+  async removeLink(kind: 'endpoint' | 'screen', linkId: string): Promise<void> {
+    const id = this.currentTaskId();
+    if (!id) return;
+    await this.linkOp('deleteTaskLink', { taskId: id, kind, id: linkId });
+  }
+
+  private async linkOp(op: string, payload: Record<string, unknown>): Promise<void> {
+    try {
+      const res = await this.supabase.invoke<TaskLinks>(op, payload);
+      this.taskLinks.set({ endpoints: res.endpoints ?? [], screens: res.screens ?? [] });
+    } catch (e) {
+      this.fireToast((e as Error).message);
+    }
+  }
+
+  private currentTaskId(): number | undefined {
+    const uc = this.selectedUc();
+    return uc ? this.rawTasks().find((x) => x.uc === uc)?.azureId : undefined;
+  }
+
   // ---- admin: sprint setup ------------------------------------------------
   async loadProjects(): Promise<void> {
     if (!this.creds || this.projects().length) return;
@@ -505,6 +619,7 @@ export class BoardStore {
     return {
       uc: r.uc || `#${r.id}`,
       azureId: r.id,
+      project: r.project ?? null,
       title: r.title,
       designer: r.designer || '—',
       feDev: r.fe_dev || '—',
@@ -533,11 +648,20 @@ export class BoardStore {
     this.layout.set(layout);
   }
 
+  /** Switch the board to a single project (or '' for all active projects). */
+  setBoardProject(project: string): void {
+    this.boardProject.set(project);
+  }
+
   openTask(uc: string): void {
     this.selectedUc.set(uc);
+    const t = this.rawTasks().find((x) => x.uc === uc);
+    this.taskLinks.set({ endpoints: [], screens: [] });
+    if (t?.azureId) this.loadTaskLinks(t.azureId);
   }
   closeTask(): void {
     this.selectedUc.set(null);
+    this.taskLinks.set({ endpoints: [], screens: [] });
   }
   openGen(): void {
     this.genOpen.set(true);
@@ -572,6 +696,9 @@ export class BoardStore {
     }
     this.creds = null;
     this.rawTasks.set([]);
+    this.boardProject.set('');
+    this.projectSources.set([]);
+    this.taskLinks.set({ endpoints: [], screens: [] });
     this.members.set([]);
     this.activity.set([]);
     this.activityOpen.set(false);

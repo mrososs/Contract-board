@@ -59,6 +59,8 @@ export interface Task {
   uc: string;
   /** Azure DevOps work item id — the write-back key for state/completed-work. */
   azureId?: number;
+  /** Azure project this task belongs to — drives the multi-project switcher. */
+  project?: string | null;
   title: string;
   designer: string;
   feDev: string;
@@ -96,4 +98,48 @@ export interface RoleInfo {
   track: string;
   color: string;
   tab: string;
+}
+
+// ---- per-project sources + N:N task mapping (design: per-project-sources) ----
+
+/** A project's configured sync sources (admin Settings). No secret values. */
+export interface ProjectSource {
+  id: string;
+  org_url: string;
+  project: string;
+  openapi_spec_url: string | null;
+  figma_file_key: string | null;
+  poll_enabled: boolean;
+  poll_interval_s: number;
+  updated_at: string;
+}
+
+/** One OpenAPI endpoint a task requires (many per task). */
+export interface TaskEndpointLink {
+  id: string;
+  operation_id: string;
+  endpoint: string | null;
+  is_required: boolean;
+  is_manual: boolean;
+  present: boolean;
+  last_diff: unknown | null;
+  updated_at: string;
+}
+
+/** One Figma frame a task requires (many per task). */
+export interface TaskScreenLink {
+  id: string;
+  node_id: string;
+  frame_name: string | null;
+  is_required: boolean;
+  is_manual: boolean;
+  status: 'wip' | 'ready' | 'changed' | 'unknown';
+  fingerprint: string | null;
+  updated_at: string;
+}
+
+/** The endpoints + screens mapped to one task, for the drawer editor. */
+export interface TaskLinks {
+  endpoints: TaskEndpointLink[];
+  screens: TaskScreenLink[];
 }
