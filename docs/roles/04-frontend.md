@@ -44,7 +44,9 @@ npx ng-openapi-gen --input <project's OpenAPI spec URL> --output src/app/api
 ## Step 4 — Build, then finish
 
 Build the screen against the generated service + the Figma links. When it's shipped, **Mark done**
-(My work card or the drawer) → Frontend track → **FE Done** (written back to Azure as Completed).
+(My work card or the drawer) → Frontend track → **FE Done**. In Azure the story moves to **In
+Progress** (not Done) — the work item only closes to **Done/Completed once both the Frontend and
+Backend tracks are done**, since one Azure story spans both.
 
 ## If something changes after you start
 - **Contract Changed** — a DTO moved after you generated. Re-run the `ng-openapi-gen` command to

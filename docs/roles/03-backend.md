@@ -38,8 +38,9 @@ URL in **Settings → OpenAPI spec URL**. Just make sure the staging spec is rea
 ## Step 4 — Claim & finish your track (optional, in-app)
 
 If you work the board directly: **My work** → **Start** a story (claims it on the Backend track) →
-**Mark done** when your part ships (Backend → **BE Done**, written back to Azure as Completed).
-**Stop** returns it to the pool.
+**Mark done** when your part ships (Backend → **BE Done**). In Azure the story shows **In Progress**
+until the **Frontend track is also done** — the work item only closes to **Done/Completed when both
+FE and BE are done** (one Azure story spans both). **Stop** returns it to the pool.
 
 ## What the Frontend sees
 On the task: the **Contract Ready** pill, the **endpoint(s)**, and (once design is also ready)

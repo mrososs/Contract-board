@@ -570,7 +570,18 @@ async function doneWork(p: Record<string, unknown>) {
   else throw new Error('Only Frontend or Backend can finish a story.');
   const { error } = await db.from('task').update(patch).eq('id', id);
   if (error) throw new Error(`doneWork: ${error.message}`);
-  await reflectAzure(p, id, 'Completed');
+
+  // One Azure work item = the whole story, so it only goes to Completed when
+  // BOTH tracks are done; if just one track finished, the story is still In
+  // Progress (the other track is ongoing).
+  const { data: after } = await db
+    .from('task')
+    .select('frontend_state, backend_state')
+    .eq('id', id)
+    .maybeSingle();
+  const bothDone = after?.frontend_state === 'fe_done' && after?.backend_state === 'be_done';
+  await reflectAzure(p, id, bothDone ? 'Completed' : 'InProgress');
+
   return getBoard();
 }
 
