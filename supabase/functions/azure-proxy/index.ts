@@ -537,8 +537,12 @@ async function addCompletedWork(p: Record<string, unknown>) {
 
 // --- per-project sources + N:N task mapping --------------------------------
 
-/** Resolve the caller from their PAT and assert they are an admin. */
-async function requireAdmin(p: Record<string, unknown>): Promise<void> {
+/**
+ * Resolve the caller from their PAT and assert they may manage sources — the
+ * sprint puller does this: a PM/lead (app_user.role = 'pm') or an admin. Mirrors
+ * the audience of the Pull controls.
+ */
+async function requirePmOrAdmin(p: Record<string, unknown>): Promise<void> {
   const orgUrl = p.orgUrl as string;
   const pat = p.pat as string;
   if (!orgUrl || !pat) throw new Error('orgUrl and pat are required');
@@ -549,12 +553,18 @@ async function requireAdmin(p: Record<string, unknown>): Promise<void> {
   )) as { authenticatedUser?: { properties?: { Account?: { $value?: string } }; providerDisplayName?: string } };
   const au = data.authenticatedUser ?? {};
   const uniqueName = au.properties?.Account?.$value ?? au.providerDisplayName ?? '';
-  if (!isAdmin(uniqueName)) throw new Error('Admin only');
+  if (isAdmin(uniqueName)) return;
+  const { data: row } = await db
+    .from('app_user')
+    .select('role')
+    .eq('azure_unique_name', uniqueName)
+    .maybeSingle();
+  if (row?.role !== 'pm') throw new Error('Only a PM/lead or admin can manage project sources');
 }
 
 /** List configured per-project sources (admin). Secret VALUES are never returned. */
 async function listProjectSources(p: Record<string, unknown>) {
-  await requireAdmin(p);
+  await requirePmOrAdmin(p);
   const { data } = await db
     .from('project_source')
     .select('id, org_url, project, openapi_spec_url, figma_file_key, poll_enabled, poll_interval_s, updated_at')
@@ -564,7 +574,7 @@ async function listProjectSources(p: Record<string, unknown>) {
 
 /** Upsert a project's spec URL / Figma file key + poll settings (admin). */
 async function setProjectSource(p: Record<string, unknown>) {
-  await requireAdmin(p);
+  await requirePmOrAdmin(p);
   const { org } = parseOrg(p.orgUrl as string);
   const project = p.project as string;
   if (!project) throw new Error('project is required');
@@ -584,7 +594,7 @@ async function setProjectSource(p: Record<string, unknown>) {
 
 /** Connection test: fetch the spec once and count operations (admin). */
 async function testOpenApiSource(p: Record<string, unknown>) {
-  await requireAdmin(p);
+  await requirePmOrAdmin(p);
   const url = p.openapiSpecUrl as string;
   if (!url) throw new Error('openapiSpecUrl is required');
   try {
@@ -603,7 +613,7 @@ async function testOpenApiSource(p: Record<string, unknown>) {
 
 /** Connection test: fetch the Figma file once using the shared FIGMA_TOKEN (admin). */
 async function testFigmaSource(p: Record<string, unknown>) {
-  await requireAdmin(p);
+  await requirePmOrAdmin(p);
   const fileKey = p.figmaFileKey as string;
   if (!fileKey) throw new Error('figmaFileKey is required');
   const token = Deno.env.get('FIGMA_TOKEN');

@@ -87,7 +87,7 @@
               <span style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--cb-ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ ep.operation_id }}</span>
               @if (ep.is_manual) { <span style="font-size: 9px; color: var(--cb-frontend)">manual</span> }
               <span style="flex: 1"></span>
-              @if (store.isAdmin()) {
+              @if (store.isAdmin() || store.role() === 'pm') {
                 <button type="button" aria-label="Remove endpoint" style="background: none; border: none; color: var(--cb-mut-3); cursor: pointer; font-size: 14px; line-height: 1" (click)="store.removeLink('endpoint', ep.id)">×</button>
               }
             </div>
@@ -118,7 +118,7 @@
               <span style="font-size: 11px; color: var(--cb-ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ sc.frame_name || sc.node_id }}</span>
               @if (sc.is_manual) { <span style="font-size: 9px; color: var(--cb-frontend)">manual</span> }
               <span style="flex: 1"></span>
-              @if (store.isAdmin()) {
+              @if (store.isAdmin() || store.role() === 'pm') {
                 <button type="button" aria-label="Remove screen" style="background: none; border: none; color: var(--cb-mut-3); cursor: pointer; font-size: 14px; line-height: 1" (click)="store.removeLink('screen', sc.id)">×</button>
               }
             </div>
