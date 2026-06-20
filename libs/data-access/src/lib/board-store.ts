@@ -85,6 +85,7 @@ interface TaskRow {
   id: number;
   sprint_id?: string;
   project?: string | null;
+  spec_url?: string | null;
   uc: string | null;
   title: string;
   macro_state: string | null;
@@ -331,6 +332,9 @@ export class BoardStore {
       gen2: (gn[1] || gn[0] || 'Model') + '.ts',
       gen2name: gn[1] || gn[0] || 'Model',
       svcFile: t.title.split(' ')[0].toLowerCase() + '.service.ts',
+      /** Real spec URL (from the project's configured source) + the command to run. */
+      specUrl: t.specUrl ?? null,
+      genCmd: `npx ng-openapi-gen --input ${t.specUrl ?? '<set the OpenAPI spec URL in Settings>'} --output src/app/api`,
     };
   });
 
@@ -622,6 +626,7 @@ export class BoardStore {
       uc: r.uc || `#${r.id}`,
       azureId: r.id,
       project: r.project ?? null,
+      specUrl: r.spec_url ?? null,
       title: r.title,
       designer: r.designer || '—',
       feDev: r.fe_dev || '—',
@@ -671,9 +676,18 @@ export class BoardStore {
   closeGen(): void {
     this.genOpen.set(false);
   }
-  confirmGen(): void {
+  /** "Add to repo & set Integration" — flip the open task to fe_integration. */
+  async confirmGen(): Promise<void> {
+    const id = this.currentTaskId();
     this.genOpen.set(false);
-    this.fireToast('Types added · state set to Integration');
+    if (!id) return;
+    try {
+      const res = await this.supabase.invoke<BoardResult>('markIntegration', { id });
+      this.applyBoard(res);
+      this.fireToast('Task moved to Integration — run the copied command in your repo');
+    } catch (e) {
+      this.fireToast((e as Error).message);
+    }
   }
   /** Drawer action — mark the open story done on the current member's track. */
   markDone(): void {

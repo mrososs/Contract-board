@@ -54,6 +54,7 @@ interface ProxyRequest {
     | 'doneWork'
     | 'setState'
     | 'addCompletedWork'
+    | 'markIntegration'
     // per-project sources (admin) + N:N task mapping
     | 'listProjectSources'
     | 'setProjectSource'
@@ -401,6 +402,12 @@ async function getBoard() {
   if (!list.length) return { sprint: null, sprints: [], tasks: [] };
 
   const byId = new Map(list.map((s) => [s.id, s]));
+
+  // Per-project OpenAPI spec URL (not secret) so any member can see the
+  // ng-openapi-gen command for a Contract-Ready task.
+  const { data: srcs } = await db.from('project_source').select('project, openapi_spec_url');
+  const specByProject = new Map((srcs ?? []).map((s) => [s.project, s.openapi_spec_url]));
+
   const { data: tasks } = await db
     .from('task')
     .select(
@@ -409,11 +416,26 @@ async function getBoard() {
     .in('sprint_id', list.map((s) => s.id))
     .order('id');
 
-  const withProject = (tasks ?? []).map((t) => ({
-    ...t,
-    project: byId.get(t.sprint_id)?.project ?? null,
-  }));
+  const withProject = (tasks ?? []).map((t) => {
+    const project = byId.get(t.sprint_id)?.project ?? null;
+    return { ...t, project, spec_url: project ? specByProject.get(project) ?? null : null };
+  });
   return { sprint: list[0], sprints: list, tasks: withProject };
+}
+
+/**
+ * FE member moved a story to Integration (after generating types). Micro-state
+ * only — no Azure write (matches startWork's posture).
+ */
+async function markIntegration(p: Record<string, unknown>) {
+  const id = Number(p.id);
+  if (!id) throw new Error('id is required');
+  const { error } = await db
+    .from('task')
+    .update({ frontend_state: 'fe_integration', updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(`markIntegration: ${error.message}`);
+  return getBoard();
 }
 
 /**
@@ -741,6 +763,8 @@ Deno.serve(async (req) => {
         return ok(await setState(payload));
       case 'addCompletedWork':
         return ok(await addCompletedWork(payload));
+      case 'markIntegration':
+        return ok(await markIntegration(payload));
       case 'listProjectSources':
         return ok(await listProjectSources(payload));
       case 'setProjectSource':

@@ -61,6 +61,8 @@ export interface Task {
   azureId?: number;
   /** Azure project this task belongs to — drives the multi-project switcher. */
   project?: string | null;
+  /** The project's OpenAPI spec URL — what `ng-openapi-gen` generates from. */
+  specUrl?: string | null;
   title: string;
   designer: string;
   feDev: string;
