@@ -1,8 +1,9 @@
 <div class="cb-set">
   <p class="cb-set__intro">
     Each Azure project polls its <strong class="cb-set__intro-strong">own</strong> OpenAPI spec and Figma file. The
-    workers match tasks by their <code class="cb-set__code">UC-n</code> tag. The Figma access
-    token is a shared server secret — only the file key is set here.
+    workers match tasks by their Azure work-item id — put <code class="cb-set__code">#&lt;id&gt;</code> in an
+    OpenAPI tag or a Figma frame name (the legacy <code class="cb-set__code">UC-n</code> tag still works). The Figma
+    access token is a shared server secret — only the file key is set here.
   </p>
 
   <!-- ============ edit form ============ -->

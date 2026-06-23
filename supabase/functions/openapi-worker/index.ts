@@ -8,10 +8,12 @@
 // unreachable / malformed spec it keeps the last good snapshot and marks it stale;
 // it never fabricates a state change (TC-18/19).
 //
-// Tasks are mapped to operations by UC convention (B2): the UC number embedded in
-// the operationId / tag / path is matched against `task.uc`. Multiple operations
-// sharing a UC all attach to that task (that's the 1:N). Manual mappings
-// (is_manual=true) are never auto-pruned.
+// Tasks are mapped to operations by the Azure work-item id: `#<id>` tokens in the
+// operation's tags (preferred) / operationId / path are matched against `task.id`.
+// An operation may carry SEVERAL ids (a shared lookup tagged `#911 #912`) and then
+// attaches to EACH matching story (N:N); the legacy UC convention (`UC-n` ->
+// `task.uc`) is the fallback when no id matches. Manual mappings (is_manual=true)
+// are never auto-pruned.
 //
 // Schedule with pg_cron or an external cron hitting this endpoint.
 // Per-project sources are configured via azure-proxy.setProjectSource.
@@ -68,6 +70,18 @@ function hasChanges(d: DtoDiff): boolean {
 function parseUc(s: string | undefined | null): string | null {
   const m = String(s ?? '').match(/\bUC[-_\s]?(\d+)\b/i);
   return m ? `UC-${m[1]}` : null;
+}
+
+/**
+ * Pull EVERY Azure work-item id out of "#912312" tokens — a shared endpoint can
+ * list several (e.g. tags ["#911312", "#922450"]) to map to multiple stories.
+ */
+function parseAzureIds(s: string | undefined | null): number[] {
+  const out: number[] = [];
+  const re = /#(\d+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(String(s ?? ''))) !== null) out.push(Number(m[1]));
+  return out;
 }
 
 // --- OpenAPI flattening -----------------------------------------------------
@@ -155,6 +169,34 @@ function operationUc(op: OperationShape, tags: string[]): string | null {
   return parseUc(op.operationId) ?? parseUc(tags.join(' ')) ?? parseUc(op.path);
 }
 
+/**
+ * Resolve EVERY task an operation belongs to. A shared endpoint can carry several
+ * `#<id>` tokens (across tags / operationId / path) to map to multiple stories —
+ * each matched against `task.id`. If none match by id, fall back to the legacy UC
+ * convention (single). Stray `#n`s that aren't real task ids simply miss `byId`.
+ */
+function operationTasks(
+  op: OperationShape,
+  tags: string[],
+  byId: Map<number, TaskRow>,
+  byUc: Map<string, TaskRow>,
+): TaskRow[] {
+  const ids = parseAzureIds(`${tags.join(' ')} ${op.operationId} ${op.path}`);
+  const out: TaskRow[] = [];
+  const seen = new Set<number>();
+  for (const id of ids) {
+    const t = byId.get(id);
+    if (t && !seen.has(t.id)) {
+      seen.add(t.id);
+      out.push(t);
+    }
+  }
+  if (out.length) return out;
+  const uc = operationUc(op, tags);
+  const t = uc ? byUc.get(uc.toUpperCase()) : undefined;
+  return t ? [t] : [];
+}
+
 // --- the run ----------------------------------------------------------------
 
 interface ProjectSource {
@@ -231,7 +273,7 @@ async function runProject(src: ProjectSource): Promise<Json> {
     return { project: src.project, ok: false, stale: true, error: (e as Error).message };
   }
 
-  // Collect tags per operationId for UC matching (same key as flattenSpec).
+  // Collect tags per operationId for #id / UC matching (same key as flattenSpec).
   const tagsByOp: Record<string, string[]> = {};
   for (const [path, pathItemRaw] of Object.entries((spec.paths ?? {}) as Json)) {
     const pathItem = pathItemRaw as Json;
@@ -245,26 +287,28 @@ async function runProject(src: ProjectSource): Promise<Json> {
 
   const nextOps = flattenSpec(spec);
 
-  // Tasks in this sprint, indexed by UC.
+  // Tasks in this sprint, indexed by #id and UC.
   const { data: taskRows } = await db
     .from('task')
     .select('id, uc, backend_state')
     .eq('sprint_id', sprintId);
   const tasks = (taskRows ?? []) as TaskRow[];
   const byUc = new Map<string, TaskRow>();
-  for (const t of tasks) if (t.uc) byUc.set(t.uc.toUpperCase(), t);
+  const byId = new Map<number, TaskRow>();
+  for (const t of tasks) {
+    if (t.uc) byUc.set(t.uc.toUpperCase(), t);
+    byId.set(t.id, t);
+  }
 
   // 1) Convention scan — ensure a (non-manual) task_endpoint row exists for every
-  //    operation whose UC matches a task. ignoreDuplicates so we never clobber an
-  //    existing row's present/last_diff/is_manual. This is where 1:N happens:
-  //    several ops sharing UC-12 each become a row for the UC-12 task.
+  //    operation whose #id(s) (preferred) or UC match a task. ignoreDuplicates so
+  //    we never clobber an existing row's present/last_diff/is_manual. A shared op
+  //    with several #ids lands a row per story (that's the N:N).
   const autoRows: { task_id: number; operation_id: string; is_manual: boolean; is_required: boolean }[] = [];
   for (const op of Object.values(nextOps)) {
-    const uc = operationUc(op, tagsByOp[op.operationId] ?? []);
-    if (!uc) continue;
-    const task = byUc.get(uc.toUpperCase());
-    if (!task) continue;
-    autoRows.push({ task_id: task.id, operation_id: op.operationId, is_manual: false, is_required: true });
+    for (const task of operationTasks(op, tagsByOp[op.operationId] ?? [], byId, byUc)) {
+      autoRows.push({ task_id: task.id, operation_id: op.operationId, is_manual: false, is_required: true });
+    }
   }
   if (autoRows.length) {
     await db.from('task_endpoint').upsert(autoRows, { onConflict: 'task_id,operation_id', ignoreDuplicates: true });

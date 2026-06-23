@@ -7,9 +7,10 @@
 // (file `version` changed) records a Design Changed activity (TC-22/24). v1 uses
 // the file `version` as the change basis, not a pixel diff (§9.7).
 //
-// Frames are mapped to tasks by UC convention (B2): the UC number in a frame name
-// is matched against `task.uc`; every UC-named frame attaches (that's the 1:N).
-// Manual mappings (is_manual=true) are never auto-pruned.
+// Frames are mapped to tasks by the Azure work-item id: a `#<id>` token in a frame
+// name is matched against `task.id`, with the legacy UC convention (`UC-n` in the
+// name -> `task.uc`) kept as a fallback. Every matched frame attaches (that's the
+// 1:N). Manual mappings (is_manual=true) are never auto-pruned.
 //
 // Figma auth uses the shared FIGMA_TOKEN secret; per-project tokens are a planned
 // follow-up (project_source.figma_token_ref is reserved for it).
@@ -44,6 +45,12 @@ function parseUc(s: string | undefined | null): string | null {
   return m ? `UC-${m[1]}` : null;
 }
 
+/** Pull an Azure work-item id out of a "#912312" token in a frame name. */
+function parseAzureId(s: string | undefined | null): number | null {
+  const m = String(s ?? '').match(/#(\d+)/);
+  return m ? Number(m[1]) : null;
+}
+
 // --- Figma document traversal -----------------------------------------------
 
 interface FigmaNode {
@@ -61,14 +68,19 @@ function figmaStatus(node: FigmaNode): DesignStatus {
   return 'wip';
 }
 
-/** Walk the tree, collecting EVERY UC-named node (frames/sections) — supports 1:N. */
-function collectFrames(root: FigmaNode, version: string): { uc: string; frame: FrameSnapshot }[] {
-  const out: { uc: string; frame: FrameSnapshot }[] = [];
+/** Walk the tree, collecting EVERY node carrying a #id or UC token — supports 1:N. */
+function collectFrames(
+  root: FigmaNode,
+  version: string,
+): { id: number | null; uc: string | null; frame: FrameSnapshot }[] {
+  const out: { id: number | null; uc: string | null; frame: FrameSnapshot }[] = [];
   const walk = (n: FigmaNode) => {
+    const id = parseAzureId(n.name);
     const uc = parseUc(n.name);
-    if (uc) {
+    if (id !== null || uc) {
       out.push({
-        uc: uc.toUpperCase(),
+        id,
+        uc: uc ? uc.toUpperCase() : null,
         frame: { nodeId: n.id, name: n.name, status: figmaStatus(n), fingerprint: version },
       });
     }
@@ -140,8 +152,12 @@ async function runProject(src: ProjectSource, token: string): Promise<Record<str
     .eq('sprint_id', sprintId);
   const tasks = (taskRows ?? []) as TaskRow[];
   const byUc = new Map<string, TaskRow>();
-  for (const t of tasks) if (t.uc) byUc.set(t.uc.toUpperCase(), t);
-  if (!byUc.size) return { project: src.project, skipped: 'no UC-tagged tasks' };
+  const byId = new Map<number, TaskRow>();
+  for (const t of tasks) {
+    if (t.uc) byUc.set(t.uc.toUpperCase(), t);
+    byId.set(t.id, t);
+  }
+  if (!byId.size) return { project: src.project, skipped: 'no tasks' };
 
   // Fetch the file. On failure, leave design state untouched (TC-18 spirit).
   let file: { document: FigmaNode; version: string };
@@ -159,11 +175,12 @@ async function runProject(src: ProjectSource, token: string): Promise<Record<str
   const nodeMap = new Map<string, FrameSnapshot>();
   for (const { frame } of collected) nodeMap.set(frame.nodeId, frame);
 
-  // 1) Convention scan — ensure a (non-manual) task_screen row per UC-named frame
-  //    whose UC matches a task. ignoreDuplicates so live status/fingerprint stick.
+  // 1) Convention scan — ensure a (non-manual) task_screen row per frame whose
+  //    #id (preferred) or UC matches a task. ignoreDuplicates so live
+  //    status/fingerprint stick.
   const autoRows: { task_id: number; node_id: string; frame_name: string; is_manual: boolean; is_required: boolean }[] = [];
-  for (const { uc, frame } of collected) {
-    const task = byUc.get(uc);
+  for (const { id, uc, frame } of collected) {
+    const task = (id !== null ? byId.get(id) : undefined) ?? (uc ? byUc.get(uc) : undefined);
     if (!task) continue;
     autoRows.push({ task_id: task.id, node_id: frame.nodeId, frame_name: frame.name, is_manual: false, is_required: true });
   }
