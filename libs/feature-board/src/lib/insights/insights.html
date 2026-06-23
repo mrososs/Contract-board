@@ -45,6 +45,13 @@
           </div>
           <div class="cb-bar"><div class="cb-bar__fill cb-bar__fill--frontend" [style.width]="store.metrics().fePct"></div></div>
         </div>
+        <div>
+          <div class="cb-bar__top">
+            <span class="cb-bar__label cb-bar__label--backend"><span></span>Hours completed</span>
+            <span class="cb-ins__count">{{ fmt(store.metrics().totalCompleted) }} / {{ fmt(store.metrics().totalOriginal) }}</span>
+          </div>
+          <div class="cb-bar"><div class="cb-bar__fill cb-bar__fill--backend" [style.width]="store.metrics().estPct"></div></div>
+        </div>
       </div>
 
       <div class="cb-ins__h cb-ins__h--mt">Who's on each side</div>

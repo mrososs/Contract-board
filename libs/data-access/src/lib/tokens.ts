@@ -68,6 +68,13 @@ export function deriveConv(
   return 'wait_design';
 }
 
+/** Compact hours label: 0 -> '0h', 2.5 -> '2.5h', null/undefined -> '—'. */
+export function formatHours(n?: number | null): string {
+  if (n == null) return '—';
+  const r = Math.round(n * 10) / 10;
+  return `${Number.isInteger(r) ? r : r.toFixed(1)}h`;
+}
+
 /** Two-letter initials, or a middot for unassigned ("—"). */
 export function initials(name: string): string {
   if (!name || name === '—') return '·';

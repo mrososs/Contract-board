@@ -89,6 +89,9 @@
                     <div class="cb-bv__card-who">
                       <span class="cb-bv__card-av" [style.background]="item.avBg" [style.color]="item.avFg">{{ item.who }}</span>
                       <span class="cb-bv__card-who-name">{{ item.whoName }}</span>
+                      @if (item.est != null) {
+                        <span class="cb-bv__card-est" [attr.title]="'Estimated ' + fmt(item.est)">{{ fmt(item.est) }}</span>
+                      }
                     </div>
                   </div>
                 }
@@ -113,7 +116,12 @@
               <span class="cb-bv__matrix-uc">{{ t.uc }}</span>
               <div>
                 <div class="cb-bv__matrix-title">{{ t.title }}</div>
-                <div class="cb-bv__matrix-conv" [style.color]="t.cv.fg">{{ t.cv.label }}</div>
+                <div class="cb-bv__matrix-conv" [style.color]="t.cv.fg">
+                  {{ t.cv.label }}
+                  @if (t.estOriginal != null) {
+                    <span class="cb-bv__matrix-est" [attr.title]="'Estimated ' + fmt(t.estOriginal)">· {{ fmt(t.estOriginal) }}</span>
+                  }
+                </div>
               </div>
               <cb-status-pill [label]="t.dp.label" [fg]="t.dp.fg" [bg]="t.dp.bg" />
               <cb-status-pill [label]="t.fp.label" [fg]="t.fp.fg" [bg]="t.fp.bg" />

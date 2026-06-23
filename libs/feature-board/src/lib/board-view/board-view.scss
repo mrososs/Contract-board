@@ -339,6 +339,16 @@
   color: var(--cb-mut-2);
 }
 
+.cb-bv__card-est {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cb-mut-2);
+  background: var(--cb-panel-2);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
 /* ---- matrix ---- */
 .cb-bv__matrix {
   max-width: 1180px;
@@ -370,6 +380,10 @@
 .cb-bv__matrix-conv {
   font-size: 10.5px;
   margin-top: 3px;
+}
+
+.cb-bv__matrix-est {
+  color: var(--cb-mut-3);
 }
 
 /* ---- convergence ---- */

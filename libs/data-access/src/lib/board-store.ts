@@ -28,6 +28,8 @@ export interface LaneItem {
   whoName: string;
   avBg: string;
   avFg: string;
+  /** Rolled-up original estimate (hours) for the lane-card chip; null = none. */
+  est: number | null;
   open: (e?: Event) => void;
 }
 export interface Lane {
@@ -76,6 +78,8 @@ interface ActivityRow {
 export interface BoardSession {
   orgUrl: string;
   pat: string;
+  /** Azure unique name (email) — used to match the member's child Tasks. */
+  uniqueName: string;
   displayName: string;
   role: Role | null;
   isAdmin: boolean;
@@ -101,6 +105,9 @@ interface TaskRow {
   block_note: string | null;
   fe_started_by: string | null;
   be_started_by: string | null;
+  est_original: number | null;
+  est_completed: number | null;
+  est_remaining: number | null;
 }
 interface BoardResult {
   sprint: { project: string; iteration_path: string } | null;
@@ -163,6 +170,8 @@ export class BoardStore {
 
   /** Azure credentials for this session — kept in memory only, never persisted. */
   private creds: { orgUrl: string; pat: string } | null = null;
+  /** The signed-in member's Azure unique name — matches their child Tasks. */
+  private memberUnique = '';
   private toastTimer?: ReturnType<typeof setTimeout>;
 
   /** Distinct projects present on the board (drives the project switcher). */
@@ -243,6 +252,7 @@ export class BoardStore {
         whoName: who,
         avBg: col + '2e',
         avFg: col,
+        est: t.estOriginal ?? null,
         open: t.open,
       };
     };
@@ -299,6 +309,11 @@ export class BoardStore {
     const contractsReady = tasks.filter((t) => t.b === 'contract_ready' || t.b === 'be_done').length;
     const feDone = tasks.filter((t) => t.f === 'fe_done').length;
     const pct = (n: number) => Math.round((n / total) * 100) + '%';
+    const sumHours = (sel: (t: DecoratedTask) => number | null | undefined) =>
+      tasks.reduce((a, t) => a + (sel(t) ?? 0), 0);
+    const totalOriginal = sumHours((t) => t.estOriginal);
+    const totalCompleted = sumHours((t) => t.estCompleted);
+    const totalRemaining = sumHours((t) => t.estRemaining);
     return {
       total: tasks.length,
       designReady,
@@ -311,6 +326,10 @@ export class BoardStore {
       designPct: pct(designReady),
       contractPct: pct(contractsReady),
       fePct: pct(feDone),
+      totalOriginal,
+      totalCompleted,
+      totalRemaining,
+      estPct: totalOriginal > 0 ? Math.round((totalCompleted / totalOriginal) * 100) + '%' : '0%',
     };
   });
 
@@ -331,6 +350,9 @@ export class BoardStore {
       dtoList: gn,
       designer: t.designer,
       beDev: t.beDev,
+      estOriginal: t.estOriginal ?? null,
+      estCompleted: t.estCompleted ?? null,
+      estRemaining: t.estRemaining ?? null,
       hasDiff: !!t.hasDiff,
       specFile: t.uc.toLowerCase().replace(/[-#]/g, '') + '.json',
       gen1: (gn[0] || 'Model') + '.ts',
@@ -355,6 +377,7 @@ export class BoardStore {
   /** Seed the store from a resolved session and load the live board. */
   async startSession(s: BoardSession): Promise<void> {
     this.creds = { orgUrl: s.orgUrl, pat: s.pat };
+    this.memberUnique = s.uniqueName ?? '';
     this.role.set(s.role ?? 'pm');
     this.identity.set({ name: s.displayName, ini: initials(s.displayName) });
     this.isAdmin.set(s.isAdmin);
@@ -827,6 +850,8 @@ export class BoardStore {
       const res = await this.supabase.invoke<BoardResult>(op, {
         id: azureId,
         actor: this.identity().name,
+        // Email identity → the proxy moves the member's own child Tasks.
+        uniqueName: this.memberUnique,
         role: this.role(),
         // The member's own creds → the proxy attributes the Azure state change
         // to them (and skips Azure if absent).
@@ -869,6 +894,9 @@ export class BoardStore {
       closed: c === 'closed',
       feStartedBy: r.fe_started_by,
       beStartedBy: r.be_started_by,
+      estOriginal: r.est_original ?? null,
+      estCompleted: r.est_completed ?? null,
+      estRemaining: r.est_remaining ?? null,
     };
   }
 
@@ -945,6 +973,7 @@ export class BoardStore {
       this.channel = null;
     }
     this.creds = null;
+    this.memberUnique = '';
     this.demoMode.set(false);
     this.rawTasks.set([]);
     this.boardProject.set('');

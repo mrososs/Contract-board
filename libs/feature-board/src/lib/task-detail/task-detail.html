@@ -106,6 +106,23 @@
         </div>
       </div>
 
+      <!-- estimate (rolled-up child-Task hours) -->
+      @if (sel.estOriginal != null) {
+        <div class="cb-detail-card cb-td__est">
+          <div class="cb-detail-card__head">
+            <span class="cb-detail-card__title">Estimate (hours)</span>
+            <span class="cb-td__count">{{ fmt(sel.estCompleted) }} / {{ fmt(sel.estOriginal) }}</span>
+          </div>
+          <div class="cb-td__est-bar">
+            <div class="cb-td__est-fill" [style.width]="estPct(sel)"></div>
+          </div>
+          <div class="cb-td__est-legend">
+            <span>Completed {{ fmt(sel.estCompleted) }}</span>
+            <span>Remaining {{ fmt(sel.estRemaining) }}</span>
+          </div>
+        </div>
+      }
+
       <!-- N:N mapping — the endpoints + screens this task needs -->
       <div class="cb-td__grid cb-td__grid--spaced">
         <!-- endpoints -->
@@ -125,7 +142,7 @@
               }
             </div>
           } @empty {
-            <div class="cb-td__empty">None yet — detected by UC tag, or add one.</div>
+            <div class="cb-td__empty">None yet — detected by #id (or UC) tag, or add one.</div>
           }
           @if (store.isAdmin()) {
             <div class="cb-td__add-row">
@@ -156,7 +173,7 @@
               }
             </div>
           } @empty {
-            <div class="cb-td__empty">None yet — detected by UC tag, or add one.</div>
+            <div class="cb-td__empty">None yet — detected by #id (or UC) tag, or add one.</div>
           }
           @if (store.isAdmin()) {
             <div class="cb-td__add-row">

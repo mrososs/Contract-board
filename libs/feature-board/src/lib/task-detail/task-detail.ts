@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, HostListener, computed, inject, signal } from '@angular/core';
-import { BoardStore } from '@contract-board/data-access';
+import { BoardStore, formatHours } from '@contract-board/data-access';
 import { StatusPill } from '@contract-board/ui';
 import { FocusTrap } from '../focus-trap.directive';
 
@@ -31,6 +31,17 @@ export class TaskDetail {
 
   /** True for the designer lens (or admin) — may edit design links / handoff. */
   protected readonly canDesign = computed(() => this.store.isAdmin() || this.store.role() === 'designer');
+
+  /** Compact hours label for the estimate block. */
+  protected readonly fmt = formatHours;
+
+  /** Completed-over-original fill width for the estimate bar (clamped, /0-safe). */
+  protected estPct(sel: { estOriginal: number | null; estCompleted: number | null }): string {
+    const o = sel.estOriginal ?? 0;
+    const c = sel.estCompleted ?? 0;
+    if (o <= 0) return '0%';
+    return Math.min(100, Math.round((c / o) * 100)) + '%';
+  }
 
   protected val(e: Event): string {
     const t = e.target;

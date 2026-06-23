@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { BoardStore } from '@contract-board/data-access';
+import { BoardStore, formatHours } from '@contract-board/data-access';
 import { StatusPill } from '@contract-board/ui';
 
 /**
@@ -18,6 +18,8 @@ import { StatusPill } from '@contract-board/ui';
 })
 export class BoardView {
   protected readonly store = inject(BoardStore);
+  /** Compact hours label for the estimate chips. */
+  protected readonly fmt = formatHours;
 
   /** Keyboard activation for role="button" cards/rows (Enter/Space → open). */
   protected activate(e: Event, open: (e?: Event) => void): void {

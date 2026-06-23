@@ -81,6 +81,13 @@ export interface Task {
   /** Who pressed "Start" on each track (the member working the story). */
   feStartedBy?: string | null;
   beStartedBy?: string | null;
+  /**
+   * Rolled-up child-Task hours (Azure VSTS.Scheduling.*), summed per story in
+   * azure-proxy.pullSprint. Null = the story has no child Tasks (≠ 0h).
+   */
+  estOriginal?: number | null;
+  estCompleted?: number | null;
+  estRemaining?: number | null;
 }
 
 /** Task enriched with the view tokens the templates consume. */

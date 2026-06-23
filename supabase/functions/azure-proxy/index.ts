@@ -286,6 +286,67 @@ async function pullSprint(p: Record<string, unknown>) {
     items = batch.value ?? [];
   }
 
+  // 2b) Child Tasks for this sprint — roll their scheduling hours up to the
+  //     parent story. Process-agnostic: Scrum/Agile/CMMI all carry a Task
+  //     category and the VSTS.Scheduling.* fields. In-sprint child Tasks only
+  //     (the WIQL filters on this iteration path), summed per System.Parent.
+  const storyIds = new Set(ids);
+  const estByParent = new Map<number, { o: number; c: number; r: number }>();
+  if (storyIds.size) {
+    const taskWiql = [
+      'SELECT [System.Id] FROM WorkItems',
+      `WHERE [System.TeamProject] = '${project.replace(/'/g, "''")}'`,
+      `  AND [System.IterationPath] = '${iterationPath.replace(/'/g, "''")}'`,
+      `  AND [System.WorkItemType] IN GROUP 'Microsoft.TaskCategory'`,
+    ].join('\n');
+    const taskWiqlRes = (await azure(
+      `${base}/${projectEnc}/_apis/wit/wiql?api-version=${AZURE_API}`,
+      pat,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: taskWiql }),
+      },
+    )) as { workItems?: { id: number }[] };
+    const taskIds = (taskWiqlRes.workItems ?? []).map((w) => w.id);
+
+    // Batched details — workitemsbatch caps at 200 ids; chunk so large sprints
+    // don't silently lose hours (child Tasks usually outnumber stories).
+    for (let i = 0; i < taskIds.length; i += 200) {
+      const batch = (await azure(
+        `${base}/_apis/wit/workitemsbatch?api-version=${AZURE_API}`,
+        pat,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ids: taskIds.slice(i, i + 200),
+            fields: [
+              'System.Id',
+              'System.Parent',
+              'Microsoft.VSTS.Scheduling.OriginalEstimate',
+              'Microsoft.VSTS.Scheduling.CompletedWork',
+              'Microsoft.VSTS.Scheduling.RemainingWork',
+            ],
+          }),
+        },
+      )) as { value?: { id: number; fields: Record<string, unknown> }[] };
+      for (const it of batch.value ?? []) {
+        const parent = it.fields['System.Parent'] as number | undefined;
+        if (parent == null || !storyIds.has(parent)) continue; // only pulled stories
+        const hours = (k: string) => {
+          const v = it.fields[`Microsoft.VSTS.Scheduling.${k}`];
+          return typeof v === 'number' ? v : 0;
+        };
+        const acc = estByParent.get(parent) ?? { o: 0, c: 0, r: 0 };
+        acc.o += hours('OriginalEstimate');
+        acc.c += hours('CompletedWork');
+        acc.r += hours('RemainingWork');
+        estByParent.set(parent, acc);
+      }
+    }
+  }
+
   // 3) Upsert the active sprint, then the tasks. Deactivation is scoped to THIS
   //    project so each project keeps its own active sprint (multi-project board).
   const { org } = parseOrg(p.orgUrl as string);
@@ -312,6 +373,8 @@ async function pullSprint(p: Record<string, unknown>) {
     const assigned = f['System.AssignedTo'] as { displayName?: string } | undefined;
     const who = assigned?.displayName ?? '—';
     const title = (f['System.Title'] as string) ?? `Work item ${it.id}`;
+    // null (not 0) when a story has no child Tasks, so the UI shows "no estimate".
+    const e = estByParent.get(it.id);
     return {
       id: it.id,
       sprint_id: sprintId,
@@ -325,6 +388,9 @@ async function pullSprint(p: Record<string, unknown>) {
       fe_dev: who,
       be_dev: who,
       endpoint: '— pending',
+      est_original: e ? e.o : null,
+      est_completed: e ? e.c : null,
+      est_remaining: e ? e.r : null,
     };
   });
 
@@ -414,7 +480,7 @@ async function getBoard() {
   const { data: tasks } = await db
     .from('task')
     .select(
-      'id, sprint_id, uc, title, macro_state, assigned_to, designer, fe_dev, be_dev, endpoint, design_state, frontend_state, backend_state, block_note, fe_started_by, fe_started_at, be_started_by, be_started_at',
+      'id, sprint_id, uc, title, macro_state, assigned_to, designer, fe_dev, be_dev, endpoint, design_state, frontend_state, backend_state, block_note, fe_started_by, fe_started_at, be_started_by, be_started_at, est_original, est_completed, est_remaining',
     )
     .in('sprint_id', list.map((s) => s.id))
     .order('id');
@@ -545,6 +611,7 @@ async function startWork(p: Record<string, unknown>) {
   const { error } = await db.from('task').update(patch).eq('id', id);
   if (error) throw new Error(`startWork: ${error.message}`);
   await reflectAzure(p, id, 'InProgress');
+  await reflectChildTasks(p, id, 'InProgress'); // member's own child Tasks → Active
   return getBoard();
 }
 
@@ -561,6 +628,60 @@ async function reflectAzure(
   const applied = await azureSetCategory(base, pat, id, category);
   if (applied) {
     await db.from('task').update({ macro_state: applied, updated_at: new Date().toISOString() }).eq('id', id);
+  }
+}
+
+/**
+ * Move the acting member's OWN child Tasks under a story to a process category
+ * (Start → InProgress, Done → Completed, Stop → Proposed/reset). A story's
+ * children are read from its Hierarchy-Forward relations; only Tasks whose
+ * AssignedTo matches the caller (by uniqueName/email, or display name) move.
+ * Best-effort under the caller's PAT — never blocks the local board update.
+ */
+async function reflectChildTasks(
+  p: Record<string, unknown>,
+  storyId: number,
+  category: 'Proposed' | 'InProgress' | 'Completed',
+) {
+  const pat = p.pat as string;
+  const orgUrl = p.orgUrl as string;
+  const meUnique = String((p.uniqueName as string) ?? '').toLowerCase();
+  const meName = String((p.actor as string) ?? '').toLowerCase();
+  if (!pat || !orgUrl || (!meUnique && !meName)) return;
+  try {
+    const { base } = parseOrg(orgUrl);
+    // Child work items of the story (parent → child hierarchy links).
+    const story = (await azure(
+      `${base}/_apis/wit/workitems/${storyId}?$expand=relations&api-version=${AZURE_API}`,
+      pat,
+    )) as { relations?: { rel: string; url: string }[] };
+    const childIds = (story.relations ?? [])
+      .filter((r) => r.rel === 'System.LinkTypes.Hierarchy-Forward')
+      .map((r) => Number(r.url.split('/').pop()))
+      .filter((n) => Number.isFinite(n));
+    if (!childIds.length) return;
+    // Keep only the children assigned to the acting member.
+    const batch = (await azure(
+      `${base}/_apis/wit/workitemsbatch?api-version=${AZURE_API}`,
+      pat,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: childIds.slice(0, 200),
+          fields: ['System.Id', 'System.AssignedTo'],
+        }),
+      },
+    )) as { value?: { id: number; fields: Record<string, unknown> }[] };
+    for (const it of batch.value ?? []) {
+      const a = it.fields['System.AssignedTo'] as { uniqueName?: string; displayName?: string } | undefined;
+      const cu = String(a?.uniqueName ?? '').toLowerCase();
+      const cn = String(a?.displayName ?? '').toLowerCase();
+      const mine = (!!meUnique && cu === meUnique) || (!!meName && cn === meName);
+      if (mine) await azureSetCategory(base, pat, it.id, category);
+    }
+  } catch (_e) {
+    // best-effort — never block the board on an Azure hiccup
   }
 }
 
@@ -581,6 +702,7 @@ async function stopWork(p: Record<string, unknown>) {
   }
   const { error } = await db.from('task').update(patch).eq('id', id);
   if (error) throw new Error(`stopWork: ${error.message}`);
+  await reflectChildTasks(p, id, 'Proposed'); // member's own child Tasks → reset to New/To-Do
   // If the story is now fully unclaimed, revert Azure to the not-started state.
   const { data: after } = await db
     .from('task')
@@ -616,6 +738,7 @@ async function doneWork(p: Record<string, unknown>) {
     .maybeSingle();
   const bothDone = after?.frontend_state === 'fe_done' && after?.backend_state === 'be_done';
   await reflectAzure(p, id, bothDone ? 'Completed' : 'InProgress');
+  await reflectChildTasks(p, id, 'Completed'); // member's own child Tasks → Done
 
   return getBoard();
 }
