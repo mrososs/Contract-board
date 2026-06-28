@@ -16,7 +16,7 @@ import {
 } from './models';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { buildMyGroups, MyWorkGroup } from './my-work-groups';
-import { DEMO_ACTIVITY, DEMO_LINKS, DEMO_MEMBERS, DEMO_PROJECTS, DEMO_SOURCES, DEMO_TASKS } from './demo-data';
+import { DEMO_ACTIVITY, DEMO_ENDPOINT_PROBES, DEMO_LINKS, DEMO_MEMBERS, DEMO_PROJECTS, DEMO_SOURCES, DEMO_TASKS } from './demo-data';
 import { SupabaseService } from './supabase.service';
 import { conv, deriveConv, initials, pill, roleInfo, TRACK } from './tokens';
 
@@ -450,6 +450,40 @@ export class BoardStore {
     if (!this.activityOpen()) this.activityUnread.update((n) => n + 1);
   }
 
+  /**
+   * Demo "Test endpoints": replay the seeded probe scenario (DEMO_ENDPOINT_PROBES)
+   * for this task so the walkthrough shows the live check deterministically — all
+   * healthy flips it Contract Ready; a 500 holds it at Building with the failure
+   * surfaced on the endpoints, the card label, and the activity feed.
+   */
+  private demoTestEndpoints(id: number): void {
+    const now = new Date().toISOString();
+    const cur = this.taskLinks();
+    const scenario = DEMO_ENDPOINT_PROBES[id];
+    const endpoints = cur.endpoints.map((e) => {
+      const hit = scenario?.find((s) => s.operationId === e.operation_id);
+      if (hit) return { ...e, health: hit.health, last_status: hit.status, last_checked_at: now };
+      return e.present ? { ...e, health: 'ok' as const, last_status: 200, last_checked_at: now } : e;
+    });
+    this.taskLinks.set({ endpoints, screens: cur.screens });
+
+    const required = endpoints.filter((e) => e.is_required);
+    const failures = required.filter((e) => e.health === 'failed');
+    const total = required.length;
+
+    if (!failures.length) {
+      const label = total === 1 ? required[0].endpoint ?? 'endpoint' : `${total} endpoints`;
+      this.patchTask(id, { b: 'contract_ready', endpoint: label });
+      this.pushDemoActivity('contract_ready', `Contract ready · ${label}`, id);
+      this.fireToast('All endpoints healthy — contract verified');
+    } else {
+      const summary = failures.map((f) => `${f.endpoint ?? f.operation_id} → ${f.last_status ?? 'unreachable'}`).join('; ');
+      this.patchTask(id, { endpoint: `${failures.length}/${total} endpoint${failures.length > 1 ? 's' : ''} failing` });
+      this.pushDemoActivity('contract_check_failed', `Endpoint check failed · ${summary}`, id);
+      this.fireToast(`${failures.length} endpoint${failures.length > 1 ? 's' : ''} failing`);
+    }
+  }
+
   /** Local endpoint/screen mapping mutations (demo). */
   private demoLinkOp(op: string, payload: Record<string, unknown>): void {
     const now = new Date().toISOString();
@@ -735,12 +769,7 @@ export class BoardStore {
     const id = this.currentTaskId();
     if (!id) return;
     if (this.demoMode()) {
-      const cur = this.taskLinks();
-      this.taskLinks.set({
-        endpoints: cur.endpoints.map((e) => ({ ...e, health: 'ok', last_status: 200, last_checked_at: new Date().toISOString() })),
-        screens: cur.screens,
-      });
-      this.fireToast('All endpoints healthy (demo)');
+      this.demoTestEndpoints(id);
       return;
     }
     this.fireToast('Testing endpoints…');
