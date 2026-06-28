@@ -12,6 +12,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { probeTask, resolveBaseUrl, summarizeFailures, type ProbeOp } from '../_shared/endpoint-probe.ts';
 
 // Admin identities (set the active Project/Sprint + pull the board). Read from
 // the ADMIN_EMAILS secret (comma-separated) so adding/removing an admin needs no
@@ -66,7 +67,8 @@ interface ProxyRequest {
     | 'listTaskLinks'
     | 'setTaskEndpoint'
     | 'setTaskScreen'
-    | 'deleteTaskLink';
+    | 'deleteTaskLink'
+    | 'testTaskEndpoints';
   payload: Record<string, unknown>;
 }
 
@@ -754,7 +756,7 @@ async function listTaskLinks(p: Record<string, unknown>) {
   if (!taskId) throw new Error('taskId is required');
   const [eps, scrs] = await Promise.all([
     db.from('task_endpoint')
-      .select('id, operation_id, endpoint, is_required, is_manual, present, last_diff, updated_at')
+      .select('id, operation_id, endpoint, is_required, is_manual, present, last_diff, last_status, last_checked_at, health, updated_at')
       .eq('task_id', taskId)
       .order('operation_id'),
     db.from('task_screen')
@@ -815,6 +817,131 @@ async function deleteTaskLink(p: Record<string, unknown>) {
   const { error } = await db.from(table).delete().eq('id', id);
   if (error) throw new Error(`deleteTaskLink: ${error.message}`);
   return listTaskLinks(p);
+}
+
+/** Lightweight operationId → {method, path} map (mirrors openapi-worker.flattenSpec keys). */
+function flattenOps(spec: Record<string, unknown>): Record<string, ProbeOp> {
+  const ops: Record<string, ProbeOp> = {};
+  const paths = (spec.paths ?? {}) as Record<string, Record<string, Record<string, unknown>>>;
+  for (const [path, item] of Object.entries(paths)) {
+    for (const m of ['get', 'put', 'post', 'delete', 'patch']) {
+      const op = item?.[m];
+      if (!op) continue;
+      const operationId = (op['operationId'] as string | undefined) ?? `${m.toUpperCase()} ${path}`;
+      ops[operationId] = { operationId, method: m.toUpperCase(), path };
+    }
+  }
+  return ops;
+}
+
+/**
+ * On-demand smoke test of a task's required endpoints (the drawer "Test
+ * endpoints" button). Runs the same safe probe + Contract Ready gate as the
+ * openapi-worker: passes → flip to contract_ready, failures → hold at Building
+ * with a block_note + contract_check_failed activity. Returns the refreshed
+ * links so the drawer updates immediately.
+ */
+async function testTaskEndpoints(p: Record<string, unknown>) {
+  const taskId = Number(p.taskId);
+  if (!taskId) throw new Error('taskId is required');
+
+  const { data: task } = await db
+    .from('task')
+    .select('id, uc, sprint_id, backend_state')
+    .eq('id', taskId)
+    .maybeSingle();
+  if (!task) throw new Error('task not found');
+
+  const { data: sprint } = await db
+    .from('sprint')
+    .select('org_url, project')
+    .eq('id', task.sprint_id)
+    .maybeSingle();
+  if (!sprint) throw new Error('no sprint for task');
+
+  const { data: source } = await db
+    .from('project_source')
+    .select('openapi_spec_url')
+    .eq('org_url', sprint.org_url)
+    .eq('project', sprint.project)
+    .maybeSingle();
+  const specUrl = source?.openapi_spec_url as string | undefined;
+  if (!specUrl) throw new Error('no OpenAPI spec configured for this project');
+
+  // Required endpoints mapped to this task.
+  const { data: epRows } = await db
+    .from('task_endpoint')
+    .select('id, operation_id, is_required')
+    .eq('task_id', taskId);
+  const required = (epRows ?? []).filter((r) => r.is_required);
+  if (!required.length) return { ...(await listTaskLinks(p)), tested: 0, message: 'no required endpoints mapped' };
+
+  // Fetch + parse the spec for base URL and operation method/path.
+  let spec: Record<string, unknown>;
+  try {
+    const res = await fetch(specUrl, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`spec fetch ${res.status}`);
+    spec = (await res.json()) as Record<string, unknown>;
+  } catch (e) {
+    throw new Error(`could not fetch spec: ${(e as Error).message}`);
+  }
+  const baseUrl = resolveBaseUrl(spec, specUrl);
+  const allOps = flattenOps(spec);
+  const token = Deno.env.get('OPENAPI_TOKEN');
+  const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  const now = new Date().toISOString();
+
+  if (!baseUrl) {
+    const note = 'Endpoint check skipped — the spec declares no servers[] base URL to test against.';
+    await db.from('task').update({ block_note: note, updated_at: now }).eq('id', taskId);
+    await db.from('activity').insert({ task_id: taskId, kind: 'contract_check_failed', actor: 'azure-proxy', message: note, payload: {} });
+    return { ...(await listTaskLinks(p)), tested: 0, baseUrl: null, message: note };
+  }
+
+  const ops: ProbeOp[] = required.map((r) => {
+    const op = allOps[r.operation_id];
+    return { operationId: r.operation_id, method: op?.method ?? 'GET', path: op?.path ?? `/${r.operation_id}` };
+  });
+  const results = await probeTask(baseUrl, ops, authHeader);
+  const byOp = new Map(results.map((r) => [r.operationId, r]));
+  for (const r of required) {
+    const res = byOp.get(r.operation_id);
+    if (!res) continue;
+    await db.from('task_endpoint').update({ last_status: res.status, last_checked_at: now, health: res.health }).eq('id', r.id);
+  }
+  const failures = results.filter((r) => r.health === 'failed');
+
+  if (!failures.length) {
+    // Only flip from Building — never downgrade a be_done task.
+    const label = required.length === 1 ? `${ops[0].method} ${ops[0].path}` : `${required.length} endpoints`;
+    if (task.backend_state === 'be_wip') {
+      await db.from('task').update({ backend_state: 'contract_ready', endpoint: label, block_note: null, updated_at: now }).eq('id', taskId);
+      await db.from('activity').insert({
+        task_id: taskId,
+        kind: 'contract_ready',
+        actor: 'azure-proxy',
+        message: `Contract ready · ${label}`,
+        payload: { endpoints: required.map((r) => r.operation_id) },
+      });
+    }
+  } else {
+    const summary = summarizeFailures(results);
+    const note = `Endpoint check failed — ${summary}`;
+    const label = `${failures.length}/${required.length} endpoint${failures.length > 1 ? 's' : ''} failing`;
+    const patch: Record<string, unknown> = { block_note: note, updated_at: now };
+    // If the live test breaks a previously-ready contract, send it back to Building.
+    if (task.backend_state === 'contract_ready') patch.backend_state = 'be_wip';
+    if (task.backend_state !== 'be_done') patch.endpoint = label;
+    await db.from('task').update(patch).eq('id', taskId);
+    await db.from('activity').insert({
+      task_id: taskId,
+      kind: 'contract_check_failed',
+      actor: 'azure-proxy',
+      message: note,
+      payload: { failures: failures.map((f) => ({ operationId: f.operationId, endpoint: f.endpoint, status: f.status })) },
+    });
+  }
+  return { ...(await listTaskLinks(p)), tested: results.length, failed: failures.length };
 }
 
 // --- dispatch --------------------------------------------------------------
@@ -883,6 +1010,8 @@ Deno.serve(async (req) => {
         return ok(await setTaskScreen(payload));
       case 'deleteTaskLink':
         return ok(await deleteTaskLink(payload));
+      case 'testTaskEndpoints':
+        return ok(await testTaskEndpoints(payload));
       default:
         return fail(`Unknown op: ${op}`);
     }

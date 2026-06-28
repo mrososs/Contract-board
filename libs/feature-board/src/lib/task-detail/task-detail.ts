@@ -32,6 +32,16 @@ export class TaskDetail {
   /** True for the designer lens (or admin) — may edit design links / handoff. */
   protected readonly canDesign = computed(() => this.store.isAdmin() || this.store.role() === 'designer');
 
+  /** Admin / PM / backend may trigger the live endpoint smoke test. */
+  protected readonly canTest = computed(
+    () => this.store.isAdmin() || this.store.role() === 'pm' || this.store.role() === 'backend',
+  );
+
+  /** Required endpoints that failed their last live check (drives the banner). */
+  protected readonly failingEndpoints = computed(() =>
+    this.store.taskLinks().endpoints.filter((e) => e.health === 'failed'),
+  );
+
   protected val(e: Event): string {
     const t = e.target;
     return t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement ? t.value : '';
@@ -55,6 +65,10 @@ export class TaskDetail {
   protected addLink(): void {
     this.store.addDesignLink(this.newLink());
     this.newLink.set('');
+  }
+
+  protected testEndpoints(): void {
+    this.store.testTaskEndpoints();
   }
 
   @HostListener('document:keydown.escape')

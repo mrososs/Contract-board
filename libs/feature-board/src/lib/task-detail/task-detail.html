@@ -38,7 +38,15 @@
         </div>
       }
 
-      @if (sel.blockNote) {
+      @if (failingEndpoints().length > 0) {
+        <div class="cb-td__banner cb-td__banner--top">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2" class="cb-td__banner-icon"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+          <span class="cb-td__banner-text"><strong class="cb-td__alert-strong">Endpoint check failed</strong> —
+            @for (ep of failingEndpoints(); track ep.id) {
+              <span class="cb-td__mono">{{ ep.endpoint || ep.operation_id }}</span> returned <strong class="cb-td__alert-strong">{{ ep.last_status ?? 'no response' }}</strong>@if (!$last) {<span>, </span>}
+            }<span class="cb-td__banner-mut"> · held at Building until it’s fixed</span></span>
+        </div>
+      } @else if (sel.blockNote) {
         <div class="cb-td__banner cb-td__banner--top">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D9885F" stroke-width="2" class="cb-td__banner-icon"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
           <span class="cb-td__banner-text"><strong class="cb-td__alert-strong">Blocked by Frontend</strong> — {{ sel.blockNote }}<span class="cb-td__banner-mut"> · back to Backend for rework</span></span>
@@ -116,8 +124,17 @@
           </div>
           @for (ep of store.taskLinks().endpoints; track ep.id) {
             <div class="cb-td__map-row">
-              <span class="cb-td__dot" [style.background]="ep.present ? 'var(--cb-backend)' : 'var(--cb-mut-3)'" [title]="ep.present ? 'present in spec' : 'not in spec yet'"></span>
+              <span
+                class="cb-td__dot"
+                [style.background]="ep.health === 'failed' ? 'var(--cb-alert)' : (ep.health === 'ok' || ep.present) ? 'var(--cb-backend)' : 'var(--cb-mut-3)'"
+                [title]="ep.health === 'failed' ? 'live check failed (' + (ep.last_status ?? 'no response') + ')' : ep.health === 'ok' ? 'live · ' + ep.last_status : ep.present ? 'present in spec' : 'not in spec yet'"
+              ></span>
               <span class="cb-td__map-name cb-td__map-name--mono">{{ ep.operation_id }}</span>
+              @if (ep.health === 'failed') {
+                <span class="cb-td__http-badge cb-td__http-badge--bad">{{ ep.last_status ?? 'down' }}</span>
+              } @else if (ep.health === 'ok') {
+                <span class="cb-td__http-badge cb-td__http-badge--ok">live</span>
+              }
               @if (ep.is_manual) { <span class="cb-td__manual-tag">manual</span> }
               <span class="cb-td__spacer"></span>
               @if (store.isAdmin() || store.role() === 'pm') {
@@ -131,6 +148,13 @@
             <div class="cb-td__add-row">
               <input type="text" placeholder="operationId" [value]="newOp()" (input)="newOp.set(val($event))" class="cb-td__input cb-td__input--mono" />
               <button type="button" class="cb-detail-btn cb-detail-btn--compact-sm" [disabled]="!newOp().trim()" (click)="addEndpoint()">Add</button>
+            </div>
+          }
+          @if (canTest()) {
+            <div class="cb-td__action-row">
+              <button type="button" class="cb-detail-btn cb-detail-btn--compact" [disabled]="!store.taskLinks().endpoints.length" (click)="testEndpoints()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4" /><circle cx="12" cy="12" r="10" /></svg>Test endpoints
+              </button>
             </div>
           }
         </div>

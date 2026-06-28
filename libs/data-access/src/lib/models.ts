@@ -125,6 +125,10 @@ export interface TaskEndpointLink {
   is_manual: boolean;
   present: boolean;
   last_diff: unknown | null;
+  /** Last live smoke-test outcome for this endpoint. */
+  last_status?: number | null;
+  last_checked_at?: string | null;
+  health?: 'ok' | 'failed' | 'unchecked';
   updated_at: string;
 }
 

@@ -14,6 +14,7 @@ const KIND: Record<string, [string, string]> = {
   design_changed: ['#D9885F', 'Design changed'],
   contract_ready: ['#3BA7B3', 'Contract ready'],
   contract_changed: ['#D9885F', 'Contract changed'],
+  contract_check_failed: ['#D9885F', 'Endpoint check failed'],
   endpoint_ready: ['#3BA7B3', 'Endpoint ready'],
   screen_ready: ['#3BA7B3', 'Screen ready'],
   fe_blocker: ['#D9885F', 'Frontend blocker'],

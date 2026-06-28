@@ -18,11 +18,21 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { probeTask, resolveBaseUrl, summarizeFailures, type ProbeOp } from '../_shared/endpoint-probe.ts';
 
 const db = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
+
+// Optional bearer for probing endpoints behind auth. Shared secret, mirroring
+// figma-worker's FIGMA_TOKEN; per-project openapi_auth_ref is a reserved
+// follow-up. When unset we probe unauthenticated — a 401/403 still proves the
+// route exists (classifyProbe treats it as reachable).
+function probeAuthHeader(): Record<string, string> {
+  const token = Deno.env.get('OPENAPI_TOKEN');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -168,6 +178,7 @@ interface TaskRow {
   id: number;
   uc: string | null;
   backend_state: string;
+  block_note: string | null;
 }
 
 interface EndpointRow {
@@ -245,10 +256,15 @@ async function runProject(src: ProjectSource): Promise<Json> {
 
   const nextOps = flattenSpec(spec);
 
+  // Live API base URL to smoke-test endpoints against (servers[0].url, resolved
+  // relative to the spec origin). Null when the spec declares no server.
+  const baseUrl = resolveBaseUrl(spec, src.openapi_spec_url);
+  const authHeader = probeAuthHeader();
+
   // Tasks in this sprint, indexed by UC.
   const { data: taskRows } = await db
     .from('task')
-    .select('id, uc, backend_state')
+    .select('id, uc, backend_state, block_note')
     .eq('sprint_id', sprintId);
   const tasks = (taskRows ?? []) as TaskRow[];
   const byUc = new Map<string, TaskRow>();
@@ -322,7 +338,10 @@ async function runProject(src: ProjectSource): Promise<Json> {
     byTask.set(row.task_id, arr);
   }
 
-  // 3) Recompute each task's backend_state from the aggregate.
+  // 3) Recompute each task's backend_state from the aggregate. A task only flips
+  //    to Contract Ready when ALL its required endpoints are (a) present in the
+  //    spec AND (b) pass a live smoke test — the spec declaring a route is not
+  //    proof it runs. We never fabricate a Contract Ready we couldn't verify.
   for (const task of tasks) {
     const rows = byTask.get(task.id) ?? [];
     const required = rows.filter((r) => r.is_required);
@@ -330,16 +349,52 @@ async function runProject(src: ProjectSource): Promise<Json> {
     const presentCount = required.filter((r) => r.present).length;
     const allPresent = presentCount === required.length;
 
-    // A concise endpoint label that also surfaces partial progress on the card.
-    const label =
-      allPresent && required.length === 1
-        ? `${nextOps[required[0].operation_id]?.method} ${nextOps[required[0].operation_id]?.path}`
-        : `${presentCount}/${required.length} endpoints`;
+    // Not all declared yet → just keep the partial count visible on the card.
+    if (!allPresent) {
+      if (task.backend_state === 'be_wip') {
+        await db.from('task').update({ endpoint: `${presentCount}/${required.length} endpoints` }).eq('id', task.id);
+      }
+      continue;
+    }
 
-    if (allPresent && task.backend_state === 'be_wip') {
+    // All required endpoints are declared. The gate below only runs for tasks
+    // still Building — an already-ready/done task is left untouched.
+    if (task.backend_state !== 'be_wip') continue;
+
+    const ops: ProbeOp[] = required.map((r) => {
+      const op = nextOps[r.operation_id];
+      return { operationId: r.operation_id, method: op?.method ?? 'GET', path: op?.path ?? `/${r.operation_id}` };
+    });
+    const now = new Date().toISOString();
+
+    // No base URL to test against → can't verify, so don't flip (TC-18). Only
+    // emit the warning once (when the note changes) so a stuck task doesn't spam
+    // the feed every poll.
+    if (!baseUrl) {
+      const note = 'Endpoint check skipped — the spec declares no servers[] base URL to test against.';
+      if (task.block_note !== note) {
+        await db.from('task').update({ endpoint: `${required.length} endpoints (unverified)`, block_note: note, updated_at: now }).eq('id', task.id);
+        await db.from('activity').insert({ task_id: task.id, kind: 'contract_check_failed', actor: 'openapi-worker', message: note, payload: {} });
+        events.push({ kind: 'contract_check_failed', message: `${task.uc ?? task.id} no base URL` });
+      }
+      continue;
+    }
+
+    // Smoke-test every required endpoint and record each result.
+    const results = await probeTask(baseUrl, ops, authHeader);
+    const byOp = new Map(results.map((r) => [r.operationId, r]));
+    for (const r of required) {
+      const res = byOp.get(r.operation_id);
+      if (!res) continue;
+      await db.from('task_endpoint').update({ last_status: res.status, last_checked_at: now, health: res.health }).eq('id', r.id);
+    }
+    const failures = results.filter((r) => r.health === 'failed');
+
+    if (!failures.length) {
+      const label = required.length === 1 ? `${ops[0].method} ${ops[0].path}` : `${required.length} endpoints`;
       await db
         .from('task')
-        .update({ backend_state: 'contract_ready', endpoint: label, block_note: null, updated_at: new Date().toISOString() })
+        .update({ backend_state: 'contract_ready', endpoint: label, block_note: null, updated_at: now })
         .eq('id', task.id);
       await db.from('activity').insert({
         task_id: task.id,
@@ -349,9 +404,24 @@ async function runProject(src: ProjectSource): Promise<Json> {
         payload: { endpoints: required.map((r) => r.operation_id) },
       });
       events.push({ kind: 'contract_ready', message: `${task.uc ?? task.id} ${label}` });
-    } else if (task.backend_state === 'be_wip') {
-      // Still partial — keep the count visible on the card.
-      await db.from('task').update({ endpoint: label }).eq('id', task.id);
+    } else {
+      // Declared but broken — hold at Building and surface which routes failed.
+      // Re-post to the feed only when the failure summary changes (avoids one
+      // event per endpoint per poll while a task stays broken).
+      const summary = summarizeFailures(results);
+      const note = `Endpoint check failed — ${summary}`;
+      const label = `${failures.length}/${required.length} endpoint${failures.length > 1 ? 's' : ''} failing`;
+      await db.from('task').update({ endpoint: label, block_note: note, updated_at: now }).eq('id', task.id);
+      if (task.block_note !== note) {
+        await db.from('activity').insert({
+          task_id: task.id,
+          kind: 'contract_check_failed',
+          actor: 'openapi-worker',
+          message: note,
+          payload: { failures: failures.map((f) => ({ operationId: f.operationId, endpoint: f.endpoint, status: f.status })) },
+        });
+        events.push({ kind: 'contract_check_failed', message: `${task.uc ?? task.id} ${summary}` });
+      }
     }
   }
 

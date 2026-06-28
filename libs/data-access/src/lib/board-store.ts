@@ -727,6 +727,39 @@ export class BoardStore {
     await this.linkOp('deleteTaskLink', { taskId: id, kind, id: linkId });
   }
 
+  /**
+   * On-demand: smoke-test the open task's required endpoints against the live API
+   * and run the Contract Ready gate (same check the openapi-worker runs on poll).
+   */
+  async testTaskEndpoints(): Promise<void> {
+    const id = this.currentTaskId();
+    if (!id) return;
+    if (this.demoMode()) {
+      const cur = this.taskLinks();
+      this.taskLinks.set({
+        endpoints: cur.endpoints.map((e) => ({ ...e, health: 'ok', last_status: 200, last_checked_at: new Date().toISOString() })),
+        screens: cur.screens,
+      });
+      this.fireToast('All endpoints healthy (demo)');
+      return;
+    }
+    this.fireToast('Testing endpoints…');
+    try {
+      const res = await this.supabase.invoke<TaskLinks & { tested?: number; failed?: number; message?: string }>(
+        'testTaskEndpoints',
+        { taskId: id },
+      );
+      this.taskLinks.set({ endpoints: res.endpoints ?? [], screens: res.screens ?? [] });
+      await this.loadBoard(); // backend_state may have flipped — refresh the pills
+      const failed = res.failed ?? 0;
+      this.fireToast(
+        res.message ? res.message : failed ? `${failed} endpoint${failed > 1 ? 's' : ''} failing` : 'All endpoints healthy — contract verified',
+      );
+    } catch (e) {
+      this.fireToast((e as Error).message);
+    }
+  }
+
   private async linkOp(op: string, payload: Record<string, unknown>): Promise<void> {
     if (this.demoMode()) {
       this.demoLinkOp(op, payload);

@@ -369,6 +369,24 @@
   color: var(--cb-frontend);
 }
 
+// Live smoke-test result chip next to a mapped endpoint.
+.cb-td__http-badge {
+  font-family: ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.cb-td__http-badge--bad {
+  color: var(--cb-alert);
+  background: rgba(217, 136, 95, 0.16);
+}
+.cb-td__http-badge--ok {
+  color: var(--cb-backend);
+  background: rgba(127, 176, 127, 0.16);
+}
+
 // ── DTO diff block ──────────────────────────────────────────────────────────
 .cb-td__diff-box {
   margin-top: 14px;
