@@ -58,6 +58,12 @@ export const DEMO_TASKS: Task[] = [
   t({ uc: 'UC-14', azureId: 1014, title: 'Online Payment Capture', d: 'design_ready', f: 'fe_scaffold', b: 'be_wip',
     feStartedBy: 'Omar', beStartedBy: 'Hana', endpoint: '1/2 endpoints failing', dtos: 'Payment · Receipt',
     specUrl: 'https://api.example.com/swagger/v1/swagger.json' }),
+  t({ uc: 'UC-15', azureId: 1015, title: 'Export Visits Report (PDF)', d: 'design_ready', f: 'fe_scaffold', b: 'be_wip',
+    feStartedBy: 'Omar', beStartedBy: 'Hana', endpoint: '1/2 endpoints failing', dtos: 'Report · ReportRequest',
+    specUrl: 'https://api.example.com/swagger/v1/swagger.json' }),
+  t({ uc: 'UC-16', azureId: 1016, title: 'Visitor Check-in (Kiosk)', d: 'design_ready', f: 'fe_scaffold', b: 'be_wip',
+    feStartedBy: 'Omar', beStartedBy: 'Hana', endpoint: 'API unreachable', dtos: 'CheckIn · Visitor',
+    specUrl: 'https://api.example.com/swagger/v1/swagger.json' }),
 ];
 
 export const DEMO_MEMBERS: { display_name: string; role: Role; is_admin: boolean }[] = [
@@ -73,6 +79,8 @@ export const DEMO_ACTIVITY = [
   { id: 'demo-a3', kind: 'endpoint_ready', actor: 'openapi-worker', message: 'Endpoint ready · POST /uc-5/renew', created_at: ts, uc: 'UC-05', title: 'Self-Renewal with Online Payment' },
   { id: 'demo-a4', kind: 'contract_changed', actor: 'openapi-worker', message: 'Contract changed · POST /uc-6/sites', created_at: ts, uc: 'UC-06', title: 'Site Management' },
   { id: 'demo-a5', kind: 'contract_check_failed', actor: 'openapi-worker', message: 'Endpoint check failed · POST /uc-14/payments → 500', created_at: ts, uc: 'UC-14', title: 'Online Payment Capture' },
+  { id: 'demo-a6', kind: 'contract_check_failed', actor: 'openapi-worker', message: 'Endpoint check failed · GET /uc-15/reports → 404', created_at: ts, uc: 'UC-15', title: 'Export Visits Report (PDF)' },
+  { id: 'demo-a7', kind: 'contract_check_failed', actor: 'openapi-worker', message: 'Endpoint check failed · POST /uc-16/checkins → unreachable', created_at: ts, uc: 'UC-16', title: 'Visitor Check-in (Kiosk)' },
 ];
 
 /** Per-task endpoints/screens (keyed by azureId) for the drawer N:N + design links. */
@@ -122,6 +130,26 @@ export const DEMO_LINKS: Record<number, TaskLinks> = {
       { id: 's14', node_id: 'https://figma.com/design/DEMO/Payment', frame_name: 'UC-14 · Payment', url: 'https://figma.com/design/DEMO/Payment', is_required: true, is_manual: true, status: 'ready', fingerprint: null, updated_at: ts },
     ],
   },
+  // UC-15 — 404. The report route is in the spec but isn't actually deployed.
+  1015: {
+    endpoints: [
+      { id: 'e15a', operation_id: 'getUC15Report', endpoint: 'GET /uc-15/reports', is_required: true, is_manual: false, present: true, last_diff: null, health: 'failed', last_status: 404, last_checked_at: ts, updated_at: ts },
+      { id: 'e15b', operation_id: 'createUC15ReportRequest', endpoint: 'POST /uc-15/reports', is_required: true, is_manual: false, present: true, last_diff: null, health: 'ok', last_status: 202, last_checked_at: ts, updated_at: ts },
+    ],
+    screens: [
+      { id: 's15', node_id: 'https://figma.com/design/DEMO/Report', frame_name: 'UC-15 · Report', url: 'https://figma.com/design/DEMO/Report', is_required: true, is_manual: true, status: 'ready', fingerprint: null, updated_at: ts },
+    ],
+  },
+  // UC-16 — unreachable host. The request never completes (timeout/DNS) → no
+  // status; the badge shows "down".
+  1016: {
+    endpoints: [
+      { id: 'e16a', operation_id: 'createUC16CheckIn', endpoint: 'POST /uc-16/checkins', is_required: true, is_manual: false, present: true, last_diff: null, health: 'failed', last_status: null, last_checked_at: ts, updated_at: ts },
+    ],
+    screens: [
+      { id: 's16', node_id: 'https://figma.com/design/DEMO/CheckIn', frame_name: 'UC-16 · Check-in', url: 'https://figma.com/design/DEMO/CheckIn', is_required: true, is_manual: true, status: 'ready', fingerprint: null, updated_at: ts },
+    ],
+  },
 };
 
 /**
@@ -132,7 +160,8 @@ export const DEMO_LINKS: Record<number, TaskLinks> = {
  */
 export interface DemoProbe {
   operationId: string;
-  status: number;
+  /** null = the request never completed (unreachable host / timeout). */
+  status: number | null;
   health: 'ok' | 'failed';
 }
 export const DEMO_ENDPOINT_PROBES: Record<number, DemoProbe[]> = {
@@ -147,6 +176,13 @@ export const DEMO_ENDPOINT_PROBES: Record<number, DemoProbe[]> = {
   1014: [
     { operationId: 'captureUC14Payment', status: 500, health: 'failed' },
     { operationId: 'getUC14Receipt', status: 200, health: 'ok' },
+  ],
+  1015: [
+    { operationId: 'getUC15Report', status: 404, health: 'failed' },
+    { operationId: 'createUC15ReportRequest', status: 202, health: 'ok' },
+  ],
+  1016: [
+    { operationId: 'createUC16CheckIn', status: null, health: 'failed' },
   ],
 };
 
